@@ -15,6 +15,8 @@
 
 // TODO
 // [ ] promisify some bits
+// [ ] winston logs
+// [ ] Organize with more files
 
 const _ = require("underscore");
 const cassandra = require("cassandra-driver");
@@ -150,28 +152,39 @@ initConnection(sourceDatabase, (err, sourceClient) => {
     initConnection(targetDatabase, (err, targetClient) => {
         // select everything that describes the tenant
         // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
+
         let query = `select * from "Tenant" where "alias" = ?`;
         sourceClient
-            .stream(query, [sourceDatabase.tenantAlias])
-            .on("readable", function() {
-                // 'readable' is emitted as soon a row is received and parsed
-                let row;
-                while ((row = this.read())) {
-                    console.log("Just fetched: \n");
-                    console.dir(row, { colors: true });
-
-                    let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
-                    // newClient.execute(insertQuery, []);
-                }
+            .execute(query, [sourceDatabase.tenantAlias])
+            .then(result => {
+                let row = result.first();
+                // debug
+                console.log("Just fetched: \n");
+                console.dir(row, { colors: true });
+                return row;
             })
-            .on("end", function() {
-                // Stream ended, there aren't any more rows
-                console.log("Stream ended, there aren't any more rows");
+            .then(row => {
+                let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+
+                return targetClient.execute(insertQuery, [
+                    row.alias,
+                    row.active,
+                    row.countryCode,
+                    row.displayName,
+                    row.emailDomains,
+                    row.host
+                ]);
+            })
+            .then(result => {
+                // debug
+                console.dir(err, { colors: true });
+                console.dir(result, { colors: true });
+            })
+            .then(result => {
                 process.exit(0);
             })
-            .on("error", function(err) {
-                // Something went wrong: err is a response error from Cassandra
-                console.log("Something went wrong: \n" + err);
+            .catch(e => {
+                console.dir(e);
             });
     });
 });
