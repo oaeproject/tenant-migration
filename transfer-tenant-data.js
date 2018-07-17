@@ -146,6 +146,7 @@ const createKeyspace = function(dbParams) {
 };
 
 let data = {};
+let tenantUsers = [];
 return (
     initConnection(sourceDatabase)
         .then(sourceClient => {
@@ -207,11 +208,9 @@ return (
                 return;
             }
 
-            // debug
-            console.dir(result.rows, { colors: true });
-
             let allInserts = [];
             result.rows.forEach(row => {
+                tenantUsers.push(row.principalId);
                 let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
                 allInserts.push(
                     Promise.resolve(
@@ -244,8 +243,31 @@ return (
             });
             return Promise.all(allInserts);
         })
-        // .then(() => {})
-        // .then(() => {})
+        .then(() => {
+            // now we copy "PrincipalsByEmail"
+            let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? ALLOW FILTERING`;
+            return data.sourceClient.execute(query, [tenantUsers]);
+        })
+        .then(result => {
+            if (_.isEmpty(result.rows)) {
+                // log here
+                return;
+            }
+
+            let allInserts = [];
+            result.rows.forEach(row => {
+                let insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
+                allInserts.push(
+                    Promise.resolve(
+                        data.targetClient.execute(insertQuery, [
+                            row.email,
+                            row.principalId
+                        ])
+                    )
+                );
+            });
+            return Promise.all(allInserts);
+        })
         // .then(() => {})
         // .then(() => {})
         // .then(() => {})
