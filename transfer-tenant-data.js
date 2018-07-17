@@ -14,7 +14,7 @@
  */
 
 // TODO
-// [ ] promisify some bits
+// [x] promisify some bits
 // [ ] winston logs
 // [ ] Organize with more files
 
@@ -71,55 +71,51 @@ const createNewClient = function(dbParams, keyspace) {
     return new cassandra.Client(config);
 };
 
-const initConnection = function(dbParams, callback) {
-    callback = callback || function() {};
-    client = createNewClient(dbParams, dbParams.keyspace);
-    client.connect(err => {
-        keyspaceExists(dbParams, client, function(err, exists) {
-            if (!exists) {
-                createKeyspace(dbParams, err => {
-                    if (err) {
-                        console.log("Unable to create keyspace: " + err);
-                    }
+const initConnection = function(dbParams) {
+    let client = createNewClient(dbParams, dbParams.keyspace);
 
-                    client = createNewClient(dbParams, dbParams.keyspace);
-                    return callback(null, client);
-                });
-            } else {
-                return callback(null, client);
+    return client
+        .connect()
+        .then(() => {
+            return keyspaceExists(dbParams, client);
+        })
+        .then(exists => {
+            if (!exists) {
+                return createKeyspace(dbParams);
             }
+            return;
+        })
+        .then(created => {
+            client = createNewClient(dbParams, dbParams.keyspace);
+            return client;
+        })
+        .catch(e => {
+            // logs
+            console.dir(e, { colors: true });
         });
-    });
 };
 
-const keyspaceExists = function(dbParams, client, callback) {
+const keyspaceExists = function(dbParams, client) {
     const query = `SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = '${
         dbParams.keyspace
     }'`;
 
-    client.execute(query, function(err, results) {
-        if (typeof results === "undefined") {
-            return callback(null, false);
-        } else if (err) {
-            log().error(
-                { err: err, name: dbParams.keyspace },
-                "Error while describing cassandra keyspace"
-            );
-            callback({
-                code: 500,
-                msg: "Error while describing cassandra keyspace"
-            });
-        }
-        return callback(null, true);
-    });
+    return client
+        .execute(query)
+        .then(result => {
+            if (typeof result === "undefined") {
+                return false;
+            }
+            return true;
+        })
+        .catch(e => {
+            // logs
+            console.dir(e, { colors: true });
+        });
 };
 
-const createKeyspace = function(dbParams, callback) {
-    callback = callback || function() {};
-    let keyspaceToCreate = dbParams.keyspace;
-    delete dbParams.keyspace;
+const createKeyspace = function(dbParams) {
     let client = createNewClient(dbParams);
-    dbParams.keyspace = keyspaceToCreate;
 
     var options = {
         name: dbParams.keyspace,
@@ -133,58 +129,55 @@ const createKeyspace = function(dbParams, callback) {
         dbParams.strategyClass
     }', 'replication_factor': ${dbParams.replication} };`;
 
-    client.execute(query, (err, result) => {
-        if (err) {
-            return callback(err);
-        }
-
-        console.log(
-            `√ Created keyspace ${dbParams.keyspace} on target server ${
-                dbParams.host
-            }`
-        );
-        // pause for a second to ensure the keyspace gets agreed upon across the cluster.
-        setTimeout(callback, 1000, null, true);
-    });
+    client
+        .execute(query)
+        .then(result => {
+            console.log(
+                `√ Created keyspace ${dbParams.keyspace} on target server ${
+                    dbParams.host
+                }`
+            );
+            return true;
+        })
+        .catch(e => {
+            // logs
+            console.dir(e, { colors: true });
+        });
 };
 
-initConnection(sourceDatabase, (err, sourceClient) => {
-    initConnection(targetDatabase, (err, targetClient) => {
+let data = {};
+return initConnection(sourceDatabase)
+    .then(sourceClient => {
+        data.sourceClient = sourceClient;
+        return initConnection(targetDatabase);
+    })
+    .then(targetClient => {
+        data.targetClient = targetClient;
         // select everything that describes the tenant
         // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
-
         let query = `select * from "Tenant" where "alias" = ?`;
-        sourceClient
-            .execute(query, [sourceDatabase.tenantAlias])
-            .then(result => {
-                let row = result.first();
-                // debug
-                console.log("Just fetched: \n");
-                console.dir(row, { colors: true });
-                return row;
-            })
-            .then(row => {
-                let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+        return data.sourceClient.execute(query, [sourceDatabase.tenantAlias]);
+    })
+    .then(result => {
+        let row = result.first();
+        return row;
+    })
+    .then(row => {
+        let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
 
-                return targetClient.execute(insertQuery, [
-                    row.alias,
-                    row.active,
-                    row.countryCode,
-                    row.displayName,
-                    row.emailDomains,
-                    row.host
-                ]);
-            })
-            .then(result => {
-                // debug
-                console.dir(err, { colors: true });
-                console.dir(result, { colors: true });
-            })
-            .then(result => {
-                process.exit(0);
-            })
-            .catch(e => {
-                console.dir(e);
-            });
+        return data.targetClient.execute(insertQuery, [
+            row.alias,
+            row.active,
+            row.countryCode,
+            row.displayName,
+            row.emailDomains,
+            row.host
+        ]);
+    })
+    .then(result => {
+        process.exit(0);
+    })
+    .catch(e => {
+        console.dir(e);
+        process.exit(-1);
     });
-});
