@@ -146,38 +146,115 @@ const createKeyspace = function(dbParams) {
 };
 
 let data = {};
-return initConnection(sourceDatabase)
-    .then(sourceClient => {
-        data.sourceClient = sourceClient;
-        return initConnection(targetDatabase);
-    })
-    .then(targetClient => {
-        data.targetClient = targetClient;
-        // select everything that describes the tenant
-        // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
-        let query = `select * from "Tenant" where "alias" = ?`;
-        return data.sourceClient.execute(query, [sourceDatabase.tenantAlias]);
-    })
-    .then(result => {
-        let row = result.first();
-        return row;
-    })
-    .then(row => {
-        let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+return (
+    initConnection(sourceDatabase)
+        .then(sourceClient => {
+            data.sourceClient = sourceClient;
+            return initConnection(targetDatabase);
+        })
+        .then(targetClient => {
+            data.targetClient = targetClient;
+            // select everything that describes the tenant
+            // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
+            let query = `select * from "Tenant" where "alias" = ?`;
+            return data.sourceClient.execute(query, [
+                sourceDatabase.tenantAlias
+            ]);
+        })
+        .then(result => {
+            let row = result.first();
+            let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
 
-        return data.targetClient.execute(insertQuery, [
-            row.alias,
-            row.active,
-            row.countryCode,
-            row.displayName,
-            row.emailDomains,
-            row.host
-        ]);
-    })
-    .then(result => {
-        process.exit(0);
-    })
-    .catch(e => {
-        console.dir(e);
-        process.exit(-1);
-    });
+            return data.targetClient.execute(insertQuery, [
+                row.alias,
+                row.active,
+                row.countryCode,
+                row.displayName,
+                row.emailDomains,
+                row.host
+            ]);
+        })
+        .then(() => {
+            // next we copy the "Config" table
+            let query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
+                sourceDatabase.tenantAlias
+            }'`;
+            return data.sourceClient.execute(query);
+        })
+        .then(result => {
+            if (_.isEmpty(result.rows)) {
+                // log here
+                return;
+            }
+
+            let row = result.first();
+            let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
+            return data.targetClient.execute(insertQuery, [
+                row.tenantAlias,
+                row.configKey,
+                row.configKey
+            ]);
+        })
+        .then(() => {
+            let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = '${
+                sourceDatabase.tenantAlias
+            }'`;
+            return data.sourceClient.execute(query);
+        })
+        .then(result => {
+            if (_.isEmpty(result.rows)) {
+                // log here
+                return;
+            }
+
+            // debug
+            console.dir(result.rows, { colors: true });
+
+            let allInserts = [];
+            result.rows.forEach(row => {
+                let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                allInserts.push(
+                    Promise.resolve(
+                        data.targetClient.execute(insertQuery, [
+                            row.principalId,
+                            row.acceptedTC,
+                            row.get("admin:global"),
+                            row.get("admin:tenant"),
+                            row.created,
+                            row.createdBy,
+                            row.deleted,
+                            row.description,
+                            row.displayName,
+                            row.email,
+                            row.emailPreference,
+                            row.joinable,
+                            row.largePictureUri,
+                            row.lastModified,
+                            row.locale,
+                            row.mediumPictureUri,
+                            row.notificationsLastRead,
+                            row.notificationsUnread,
+                            row.publicAlias,
+                            row.smallPictureUri,
+                            row.tenantAlias,
+                            row.visibility
+                        ])
+                    )
+                );
+            });
+            return Promise.all(allInserts);
+        })
+        // .then(() => {})
+        // .then(() => {})
+        // .then(() => {})
+        // .then(() => {})
+        // .then(() => {})
+        // .then(() => {})
+        .then(result => {
+            process.exit(0);
+        })
+        .catch(e => {
+            console.dir(e);
+            process.exit(-1);
+        })
+);
