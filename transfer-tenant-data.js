@@ -207,6 +207,10 @@ return (
                 query: `CREATE TABLE IF NOT EXISTS "AuthzMembers" ("resourceId" text, "memberId" text, "role" text, PRIMARY KEY ("resourceId", "memberId")) WITH COMPACT STORAGE`,
                 params: []
             });
+            createAllTables.push({
+                query: `CREATE TABLE IF NOT EXISTS "AuthzRoles" ("principalId" text, "resourceId" text, "role" text, PRIMARY KEY ("principalId", "resourceId")) WITH COMPACT STORAGE`,
+                params: []
+            });
 
             allPromises = [];
             createAllTables.forEach(eachCreateStatement => {
@@ -229,7 +233,7 @@ return (
         })
         .then(result => {
             if (_.isEmpty(result.rows)) {
-                // log here
+                logger.info(`${chalk.green(`✓`)}  No Tenant rows found...`);
                 return;
             }
 
@@ -255,7 +259,7 @@ return (
         })
         .then(result => {
             if (_.isEmpty(result.rows)) {
-                // log here
+                logger.info(`${chalk.green(`✓`)}  No Config rows found...`);
                 return;
             }
 
@@ -292,7 +296,7 @@ return (
         })
         .then(result => {
             if (_.isEmpty(result)) {
-                // log here
+                logger.info(`${chalk.green(`✓`)}  No Principals rows found...`);
                 return;
             }
 
@@ -337,7 +341,9 @@ return (
         })
         .then(result => {
             if (_.isEmpty(result.rows)) {
-                // log here
+                logger.info(
+                    `${chalk.green(`✓`)}  No PrincipalsByEmail rows found...`
+                );
                 return;
             }
 
@@ -359,7 +365,9 @@ return (
         .then(result => {
             // insert authzmembers
             if (_.isEmpty(result.rows)) {
-                // log here
+                logger.info(
+                    `${chalk.green(`✓`)}  No AuthzMembers rows found...`
+                );
                 return;
             }
 
@@ -441,9 +449,11 @@ return (
             return data.sourceClient.execute(query, [data.folderGroups]);
         })
         .then(result => {
-            // insert data into "FoldersGroupId"
             if (_.isEmpty(result.rows)) {
-                // log here
+                logger.info(
+                    `${chalk.green(`✓`)}  No FoldersGroupId rows found...`
+                );
+
                 return;
             }
 
@@ -457,10 +467,27 @@ return (
             logger.info(`${chalk.green(`✓`)}  Inserting FoldersGroupId...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
-        // .then(() => {
-        // })
-        // .then(() => {
-        // })
+        .then(() => {
+            let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ?`;
+            return data.sourceClient.execute(query, [tenantPrincipals]);
+        })
+        .then(result => {
+            if (_.isEmpty(result.rows)) {
+                logger.info(`${chalk.green(`✓`)}  No AuthzRoles rows found...`);
+
+                return;
+            }
+
+            let allInserts = [];
+            result.rows.forEach(row => {
+                allInserts.push({
+                    query: `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`,
+                    params: [row.principalId, row.resourceId, row.role]
+                });
+            });
+            logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
+            return data.targetClient.batch(allInserts, { prepare: true });
+        })
         // .then(() => {
         // })
         // .then(() => {
