@@ -19,6 +19,9 @@
 // [ ] Organize with more files
 
 const _ = require("underscore");
+const chalk = require("chalk");
+const { createLogger, format, transports } = require("winston");
+const { combine, timestamp, label, printf } = format;
 const cassandra = require("cassandra-driver");
 const dataTypes = require("cassandra-driver").types.dataTypes;
 const Row = require("cassandra-driver").types.Row;
@@ -47,8 +50,21 @@ const targetDatabase = {
     replication: 1
 };
 
+const myFormat = printf(info => {
+    return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
+});
+
+const logger = createLogger({
+    level: "info",
+    format: combine(
+        label({ label: "Tenancy data migration" }),
+        timestamp(),
+        myFormat
+    ),
+    transports: [new transports.Console()]
+});
+
 const createNewClient = function(dbParams, keyspace) {
-    console.log("\nCreating new client for keyspace " + keyspace);
     const loadBalancingPolicy = new cassandra.policies.loadBalancing.RoundRobinPolicy();
     const reconnectionPolicy = new cassandra.policies.reconnection.ConstantReconnectionPolicy(
         dbParams.timeout
@@ -77,7 +93,11 @@ const createNewClient = function(dbParams, keyspace) {
 };
 
 const initConnection = function(dbParams) {
-    console.log("\nInitializing connection for " + dbParams.keyspace);
+    logger.info(
+        `${chalk.green(`✓`)}  Initialising connection to ${dbParams.host}/${
+            dbParams.keyspace
+        }`
+    );
     let client = createNewClient(dbParams);
 
     return client
@@ -86,9 +106,6 @@ const initConnection = function(dbParams) {
             return keyspaceExists(dbParams, client);
         })
         .then(exists => {
-            console.log(
-                "\n  keyspace " + dbParams.keyspace + " exists? " + exists
-            );
             if (!exists) {
                 return createKeyspace(dbParams, client);
             } else {
@@ -100,15 +117,12 @@ const initConnection = function(dbParams) {
             return client;
         })
         .catch(e => {
-            // logs
-            console.dir(e, { colors: true });
+            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+            process.exit(-1);
         });
 };
 
 const keyspaceExists = function(dbParams, client) {
-    console.log(
-        "\nChecking whether keyspace " + dbParams.keyspace + " exists..."
-    );
     const query = `SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = '${
         dbParams.keyspace
     }'`;
@@ -119,15 +133,12 @@ const keyspaceExists = function(dbParams, client) {
             return !_.isEmpty(result.rows);
         })
         .catch(e => {
-            // logs
-            console.dir(e, { colors: true });
+            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+            process.exit(-1);
         });
 };
 
 const createKeyspace = function(dbParams, client) {
-    console.log("\nCreating keyspace " + dbParams.keyspace);
-    // let client = createNewClient(dbParams);
-
     var options = {
         name: dbParams.keyspace,
         strategyClass: dbParams.strategyClass,
@@ -143,16 +154,16 @@ const createKeyspace = function(dbParams, client) {
     return client
         .execute(query)
         .then(result => {
-            console.log(
-                `√ Created keyspace ${dbParams.keyspace} on target server ${
-                    dbParams.host
-                }`
+            logger.info(
+                `${chalk.green(`✓`)}  Created keyspace ${
+                    dbParams.keyspace
+                } on ${dbParams.host}`
             );
             return true;
         })
         .catch(e => {
-            // logs
-            console.dir(e, { colors: true });
+            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+            process.exit(-1);
         });
 };
 
@@ -205,6 +216,7 @@ return (
                     )
                 );
             });
+            logger.info(`${chalk.green(`✓`)}  Creating tables...`);
             return Promise.all(allPromises);
         })
         .then(() => {
@@ -224,6 +236,7 @@ return (
             let row = result.first();
             let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
 
+            logger.info(`${chalk.green(`✓`)}  Inserting tenant...`);
             return data.targetClient.execute(insertQuery, [
                 row.alias,
                 row.active,
@@ -247,6 +260,7 @@ return (
             }
 
             let row = result.first();
+            logger.info(`${chalk.green(`✓`)}  Inserting tenant config...`);
             let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
             return data.targetClient.execute(insertQuery, [
                 row.tenantAlias,
@@ -313,6 +327,7 @@ return (
                     ]
                 });
             });
+            logger.info(`${chalk.green(`✓`)}  Inserting Principals...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
@@ -333,6 +348,7 @@ return (
                     params: [row.email, row.principalId]
                 });
             });
+            logger.info(`${chalk.green(`✓`)}  Inserting PrincipalsByEmail...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
@@ -354,6 +370,7 @@ return (
                     params: [row.resourceId, row.memberId, row.role]
                 });
             });
+            logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
@@ -375,14 +392,10 @@ return (
             data.allRows = [];
             data.foldersFromThisTenancyAlone = [];
 
-            console.log("Here we go...");
             return doAllTheThings().on("readable", function() {
                 // 'readable' is emitted as soon a row is received and parsed
                 let row;
                 while ((row = this.read())) {
-                    // debug
-                    console.log(" √ Fetched a folder");
-
                     if (
                         row.tenantAlias &&
                         row.tenantAlias === sourceDatabase.tenantAlias
@@ -419,8 +432,7 @@ return (
                 });
                 data.folderGroups.push(row.groupId);
             });
-            // debug
-            console.dir(data.folderGroups);
+            logger.info(`${chalk.green(`✓`)}  Inserting Folders...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
@@ -429,12 +441,6 @@ return (
             return data.sourceClient.execute(query, [data.folderGroups]);
         })
         .then(result => {
-            // debug
-            console.log("tenant groups:");
-            console.dir(tenantGroups);
-            console.log("Groups:");
-            console.dir(result.rows);
-
             // insert data into "FoldersGroupId"
             if (_.isEmpty(result.rows)) {
                 // log here
@@ -448,6 +454,7 @@ return (
                     params: [row.groupId, row.folderId]
                 });
             });
+            logger.info(`${chalk.green(`✓`)}  Inserting FoldersGroupId...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         // .then(() => {
@@ -465,10 +472,13 @@ return (
         // insert "AuthzMembers"
         // })
         .then(result => {
+            logger.info(`${chalk.green(`✓`)}  Exiting.`);
+            logger.end();
             process.exit(0);
         })
         .catch(e => {
-            console.dir(e);
+            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+            logger.end();
             process.exit(-1);
         })
 );
