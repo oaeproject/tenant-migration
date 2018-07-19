@@ -218,6 +218,9 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "RevisionByContent" ("contentId" text, "created" text, "revisionId" text, PRIMARY KEY ("contentId", "created")) WITH COMPACT STORAGE'
         });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "Revisions" ("revisionId" text PRIMARY KEY, "contentId" text, "created" text, "createdBy" text, "filename" text, "mime" text, "size" text, "uri" text, "previewsId" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadHtml" text)`
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -557,6 +560,45 @@ return initConnection(sourceDatabase)
             });
         });
         logger.info(`${chalk.green(`✓`)}  Inserting RevisionByContent...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "Revisions" WHERE "revisionId" IN ?`;
+        return data.sourceClient.execute(query, [data.allRevisionIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No Revisions rows found...`);
+
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "Revisions" ("revisionId", "contentId", created, "createdBy", "etherpadHtml", filename, "largeUri", "mediumUri", mime, previews, "previewsId", size, "smallUri", status, "thumbnailUri", uri, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                params: [
+                    row.revisionId,
+                    row.contentId,
+                    row.created,
+                    row.createdBy,
+                    row.etherpadHtml,
+                    row.filename,
+                    row.largeUri,
+                    row.mediumUri,
+                    row.mime,
+                    row.previews,
+                    row.previewsId,
+                    row.size,
+                    row.smallUri,
+                    row.status,
+                    row.thumbnailUri,
+                    row.uri,
+                    row.wideUri
+                ]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting Revisions...`);
         return data.targetClient.batch(allInserts, { prepare: true });
     })
     .then(result => {
