@@ -172,388 +172,402 @@ let tenantPrincipals = [];
 let tenantUsers = [];
 let tenantGroups = [];
 
-return (
-    initConnection(sourceDatabase)
-        .then(sourceClient => {
-            data.sourceClient = sourceClient;
-            return initConnection(targetDatabase);
-        })
-        .then(targetClient => {
-            data.targetClient = targetClient;
+return initConnection(sourceDatabase)
+    .then(sourceClient => {
+        data.sourceClient = sourceClient;
+        return initConnection(targetDatabase);
+    })
+    .then(targetClient => {
+        data.targetClient = targetClient;
 
-            // create all the tables we need
-            let createAllTables = [];
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Principals" ("principalId" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "description" text, "email" text, "emailPreference" text, "visibility" text, "joinable" text, "lastModified" text, "locale" text, "publicAlias" text, "largePictureUri" text, "mediumPictureUri" text, "smallPictureUri" text, "admin:global" text, "admin:tenant" text, "notificationsUnread" text, "notificationsLastRead" text, "acceptedTC" text, "createdBy" text, "created" timestamp, "deleted" timestamp)`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "PrincipalsByEmail" ("email" text, "principalId" text, PRIMARY KEY ("email", "principalId"))`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Tenant" ("alias" text PRIMARY KEY, "displayName" text, "host" text, "emailDomains" text, "countryCode" text, "active" boolean)`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Folders" ("id" text PRIMARY KEY, "tenantAlias" text, "groupId" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" bigint, "lastModified" bigint, "previews" text)`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "FoldersGroupId" ("groupId" text PRIMARY KEY, "folderId" text)`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "AuthzMembers" ("resourceId" text, "memberId" text, "role" text, PRIMARY KEY ("resourceId", "memberId")) WITH COMPACT STORAGE`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "AuthzRoles" ("principalId" text, "resourceId" text, "role" text, PRIMARY KEY ("principalId", "resourceId")) WITH COMPACT STORAGE`,
-                params: []
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Content" ("contentId" text PRIMARY KEY, "tenantAlias" text, "visibility" text, "displayName" text, "description" text, "resourceSubType" text, "createdBy" text, "created" text, "lastModified" text, "latestRevisionId" text, "uri" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadGroupId" text, "etherpadPadId" text, "filename" text, "link" text, "mime" text, "size" text)`,
-                params: []
-            });
+        // create all the tables we need
+        let createAllTables = [];
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "Principals" ("principalId" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "description" text, "email" text, "emailPreference" text, "visibility" text, "joinable" text, "lastModified" text, "locale" text, "publicAlias" text, "largePictureUri" text, "mediumPictureUri" text, "smallPictureUri" text, "admin:global" text, "admin:tenant" text, "notificationsUnread" text, "notificationsLastRead" text, "acceptedTC" text, "createdBy" text, "created" timestamp, "deleted" timestamp)`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "PrincipalsByEmail" ("email" text, "principalId" text, PRIMARY KEY ("email", "principalId"))`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "Tenant" ("alias" text PRIMARY KEY, "displayName" text, "host" text, "emailDomains" text, "countryCode" text, "active" boolean)`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "Folders" ("id" text PRIMARY KEY, "tenantAlias" text, "groupId" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" bigint, "lastModified" bigint, "previews" text)`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "FoldersGroupId" ("groupId" text PRIMARY KEY, "folderId" text)`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "AuthzMembers" ("resourceId" text, "memberId" text, "role" text, PRIMARY KEY ("resourceId", "memberId")) WITH COMPACT STORAGE`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "AuthzRoles" ("principalId" text, "resourceId" text, "role" text, PRIMARY KEY ("principalId", "resourceId")) WITH COMPACT STORAGE`,
+            params: []
+        });
+        createAllTables.push({
+            query: `CREATE TABLE IF NOT EXISTS "Content" ("contentId" text PRIMARY KEY, "tenantAlias" text, "visibility" text, "displayName" text, "description" text, "resourceSubType" text, "createdBy" text, "created" text, "lastModified" text, "latestRevisionId" text, "uri" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadGroupId" text, "etherpadPadId" text, "filename" text, "link" text, "mime" text, "size" text)`,
+            params: []
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "RevisionByContent" ("contentId" text, "created" text, "revisionId" text, PRIMARY KEY ("contentId", "created")) WITH COMPACT STORAGE'
+        });
 
-            allPromises = [];
-            createAllTables.forEach(eachCreateStatement => {
-                allPromises.push(
-                    Promise.resolve(
-                        data.targetClient.execute(eachCreateStatement.query)
-                    )
-                );
-            });
-            logger.info(`${chalk.green(`✓`)}  Creating tables...`);
-            return Promise.all(allPromises);
-        })
-        .then(() => {
-            // select everything that describes the tenant
-            // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
-            let query = `select * from "Tenant" where "alias" = ?`;
-            return data.sourceClient.execute(query, [
-                sourceDatabase.tenantAlias
-            ]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(`${chalk.green(`✓`)}  No Tenant rows found...`);
-                return;
+        allPromises = [];
+        createAllTables.forEach(eachCreateStatement => {
+            allPromises.push(
+                Promise.resolve(
+                    data.targetClient.execute(eachCreateStatement.query)
+                )
+            );
+        });
+        logger.info(`${chalk.green(`✓`)}  Creating tables...`);
+        return Promise.all(allPromises);
+    })
+    .then(() => {
+        // select everything that describes the tenant
+        // We're copying over tables: Tenant, TenantNetwork and TenantNetworkTenants
+        let query = `select * from "Tenant" where "alias" = ?`;
+        return data.sourceClient.execute(query, [sourceDatabase.tenantAlias]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No Tenant rows found...`);
+            return;
+        }
+
+        let row = result.first();
+        let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+
+        logger.info(`${chalk.green(`✓`)}  Inserting tenant...`);
+        return data.targetClient.execute(insertQuery, [
+            row.alias,
+            row.active,
+            row.countryCode,
+            row.displayName,
+            row.emailDomains,
+            row.host
+        ]);
+    })
+    .then(() => {
+        // next we copy the "Config" table
+        let query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
+            sourceDatabase.tenantAlias
+        }'`;
+        return data.sourceClient.execute(query);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No Config rows found...`);
+            return;
+        }
+
+        let row = result.first();
+        logger.info(`${chalk.green(`✓`)}  Inserting tenant config...`);
+        let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
+        return data.targetClient.execute(insertQuery, [
+            row.tenantAlias,
+            row.configKey,
+            row.configKey
+        ]);
+    })
+    .then(() => {
+        let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ?`;
+        return data.sourceClient.execute(query, [sourceDatabase.tenantAlias]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            return;
+        }
+
+        // we'll need to know which principals are users or groups
+        result.rows.forEach(row => {
+            tenantPrincipals.push(row.principalId);
+            if (row.principalId.startsWith("g")) {
+                tenantGroups.push(row.principalId);
+            } else if (row.principalId.startsWith("u")) {
+                tenantUsers.push(row.principalId);
             }
+        });
+        return result.rows;
+    })
+    .then(result => {
+        if (_.isEmpty(result)) {
+            logger.info(`${chalk.green(`✓`)}  No Principals rows found...`);
+            return;
+        }
 
-            let row = result.first();
-            let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
-
-            logger.info(`${chalk.green(`✓`)}  Inserting tenant...`);
-            return data.targetClient.execute(insertQuery, [
-                row.alias,
-                row.active,
-                row.countryCode,
-                row.displayName,
-                row.emailDomains,
-                row.host
-            ]);
-        })
-        .then(() => {
-            // next we copy the "Config" table
-            let query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
-                sourceDatabase.tenantAlias
-            }'`;
-            return data.sourceClient.execute(query);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(`${chalk.green(`✓`)}  No Config rows found...`);
-                return;
-            }
-
-            let row = result.first();
-            logger.info(`${chalk.green(`✓`)}  Inserting tenant config...`);
-            let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
-            return data.targetClient.execute(insertQuery, [
-                row.tenantAlias,
-                row.configKey,
-                row.configKey
-            ]);
-        })
-        .then(() => {
-            let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ?`;
-            return data.sourceClient.execute(query, [
-                sourceDatabase.tenantAlias
-            ]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                return;
-            }
-
-            // we'll need to know which principals are users or groups
-            result.rows.forEach(row => {
-                tenantPrincipals.push(row.principalId);
-                if (row.principalId.startsWith("g")) {
-                    tenantGroups.push(row.principalId);
-                } else if (row.principalId.startsWith("u")) {
-                    tenantUsers.push(row.principalId);
-                }
+        let allInserts = [];
+        result.forEach(row => {
+            let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            allInserts.push({
+                query: insertQuery,
+                params: [
+                    row.principalId,
+                    row.acceptedTC,
+                    row.get("admin:global"),
+                    row.get("admin:tenant"),
+                    row.created,
+                    row.createdBy,
+                    row.deleted,
+                    row.description,
+                    row.displayName,
+                    row.email,
+                    row.emailPreference,
+                    row.joinable,
+                    row.largePictureUri,
+                    row.lastModified,
+                    row.locale,
+                    row.mediumPictureUri,
+                    row.notificationsLastRead,
+                    row.notificationsUnread,
+                    row.publicAlias,
+                    row.smallPictureUri,
+                    row.tenantAlias,
+                    row.visibility
+                ]
             });
-            return result.rows;
-        })
-        .then(result => {
-            if (_.isEmpty(result)) {
-                logger.info(`${chalk.green(`✓`)}  No Principals rows found...`);
-                return;
-            }
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting Principals...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        // now we copy "PrincipalsByEmail"
+        let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? ALLOW FILTERING`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No PrincipalsByEmail rows found...`
+            );
+            return;
+        }
 
-            let allInserts = [];
-            result.forEach(row => {
-                let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                allInserts.push({
-                    query: insertQuery,
-                    params: [
-                        row.principalId,
-                        row.acceptedTC,
-                        row.get("admin:global"),
-                        row.get("admin:tenant"),
-                        row.created,
-                        row.createdBy,
-                        row.deleted,
-                        row.description,
-                        row.displayName,
-                        row.email,
-                        row.emailPreference,
-                        row.joinable,
-                        row.largePictureUri,
-                        row.lastModified,
-                        row.locale,
-                        row.mediumPictureUri,
-                        row.notificationsLastRead,
-                        row.notificationsUnread,
-                        row.publicAlias,
-                        row.smallPictureUri,
-                        row.tenantAlias,
-                        row.visibility
-                    ]
-                });
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`,
+                params: [row.email, row.principalId]
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting Principals...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            // now we copy "PrincipalsByEmail"
-            let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? ALLOW FILTERING`;
-            return data.sourceClient.execute(query, [tenantPrincipals]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(
-                    `${chalk.green(`✓`)}  No PrincipalsByEmail rows found...`
-                );
-                return;
-            }
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting PrincipalsByEmail...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        // query "authzmembers"
+        let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? ALLOW FILTERING`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        // insert authzmembers
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No AuthzMembers rows found...`);
+            return;
+        }
 
-            let allInserts = [];
-            result.rows.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`,
-                    params: [row.email, row.principalId]
-                });
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
+                params: [row.resourceId, row.memberId, row.role]
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting PrincipalsByEmail...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            // query "authzmembers"
-            let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? ALLOW FILTERING`;
-            return data.sourceClient.execute(query, [tenantPrincipals]);
-        })
-        .then(result => {
-            // insert authzmembers
-            if (_.isEmpty(result.rows)) {
-                logger.info(
-                    `${chalk.green(`✓`)}  No AuthzMembers rows found...`
-                );
-                return;
-            }
-
-            let allInserts = [];
-            result.rows.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
-                    params: [row.resourceId, row.memberId, row.role]
-                });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        function doAllTheThings() {
+            let query = `SELECT * FROM "Folders"`;
+            var com = data.sourceClient.stream(query);
+            var p = new Promise(function(resolve, reject) {
+                com.on("end", resolve);
+                com.on("error", reject);
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            function doAllTheThings() {
-                let query = `SELECT * FROM "Folders"`;
-                var com = data.sourceClient.stream(query);
-                var p = new Promise(function(resolve, reject) {
-                    com.on("end", resolve);
-                    com.on("error", reject);
-                });
-                p.on = function() {
-                    com.on.apply(com, arguments);
-                    return p;
-                };
+            p.on = function() {
+                com.on.apply(com, arguments);
                 return p;
-            }
+            };
+            return p;
+        }
 
-            // query "folders" - This is very very inadequate but we can't filter it!
-            data.allRows = [];
-            data.foldersFromThisTenancyAlone = [];
+        // query "folders" - This is very very inadequate but we can't filter it!
+        data.allRows = [];
+        data.foldersFromThisTenancyAlone = [];
 
-            return doAllTheThings().on("readable", function() {
-                // 'readable' is emitted as soon a row is received and parsed
-                let row;
-                while ((row = this.read())) {
-                    if (
-                        row.tenantAlias &&
-                        row.tenantAlias === sourceDatabase.tenantAlias
-                    ) {
-                        data.allRows.push(row);
-                        data.foldersFromThisTenancyAlone.push(row.id);
-                    }
+        return doAllTheThings().on("readable", function() {
+            // 'readable' is emitted as soon a row is received and parsed
+            let row;
+            while ((row = this.read())) {
+                if (
+                    row.tenantAlias &&
+                    row.tenantAlias === sourceDatabase.tenantAlias
+                ) {
+                    data.allRows.push(row);
+                    data.foldersFromThisTenancyAlone.push(row.id);
                 }
-            });
-        })
-        .then(result => {
-            // Going to insert those filtered folders
-            data.folderGroups = [];
-
-            result = data.allRows;
-            delete data.allRows;
-
-            let allInserts = [];
-            result.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-                    params: [
-                        row.id,
-                        row.created,
-                        row.createBy,
-                        row.description,
-                        row.displayName,
-                        row.groupId,
-                        row.lastModified,
-                        row.previews,
-                        row.tenantAlias,
-                        row.visibility
-                    ]
-                });
-                data.folderGroups.push(row.groupId);
-            });
-            logger.info(`${chalk.green(`✓`)}  Inserting Folders...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            // query "foldersGroupId"
-            let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ?`;
-            return data.sourceClient.execute(query, [data.folderGroups]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(
-                    `${chalk.green(`✓`)}  No FoldersGroupId rows found...`
-                );
-
-                return;
             }
+        });
+    })
+    .then(result => {
+        // Going to insert those filtered folders
+        data.folderGroups = [];
 
-            let allInserts = [];
-            result.rows.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`,
-                    params: [row.groupId, row.folderId]
-                });
+        result = data.allRows;
+        delete data.allRows;
+
+        let allInserts = [];
+        result.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
+                params: [
+                    row.id,
+                    row.created,
+                    row.createBy,
+                    row.description,
+                    row.displayName,
+                    row.groupId,
+                    row.lastModified,
+                    row.previews,
+                    row.tenantAlias,
+                    row.visibility
+                ]
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting FoldersGroupId...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ?`;
-            return data.sourceClient.execute(query, [tenantPrincipals]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(`${chalk.green(`✓`)}  No AuthzRoles rows found...`);
+            data.folderGroups.push(row.groupId);
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting Folders...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        // query "foldersGroupId"
+        let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ?`;
+        return data.sourceClient.execute(query, [data.folderGroups]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No FoldersGroupId rows found...`);
 
-                return;
-            }
+            return;
+        }
 
-            data.allResources = _.pluck(result.rows, "resourceId");
-            let allInserts = [];
-            result.rows.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`,
-                    params: [row.principalId, row.resourceId, row.role]
-                });
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`,
+                params: [row.groupId, row.folderId]
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        .then(() => {
-            let query = `SELECT * FROM "Content" WHERE "contentId" IN ?`;
-            return data.sourceClient.execute(query, [data.allResources]);
-        })
-        .then(result => {
-            if (_.isEmpty(result.rows)) {
-                logger.info(`${chalk.green(`✓`)}  No Content rows found...`);
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting FoldersGroupId...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ?`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No AuthzRoles rows found...`);
 
-                return;
-            }
+            return;
+        }
 
-            data.allContent = result.rows;
-            let allInserts = [];
-            result.rows.forEach(row => {
-                allInserts.push({
-                    query: `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    params: [
-                        row.contentId,
-                        row.created,
-                        row.createdBy,
-                        row.description,
-                        row.displayName,
-                        row.etherpadGroupId,
-                        row.etherpadPadId,
-                        row.filename,
-                        row.largeUri,
-                        row.lastModified,
-                        row.latestRevisionId,
-                        row.link,
-                        row.mediumUri,
-                        row.mime,
-                        row.previews,
-                        row.resourceSubType,
-                        row.size,
-                        row.smallUri,
-                        row.status,
-                        row.tenantAlias,
-                        row.thumbnailUri,
-                        row.uri,
-                        row.visibility,
-                        row.wideUri
-                    ]
-                });
+        data.allResourceIds = _.pluck(result.rows, "resourceId");
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`,
+                params: [row.principalId, row.resourceId, row.role]
             });
-            logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
-            return data.targetClient.batch(allInserts, { prepare: true });
-        })
-        // .then(() => {
-        // query "AuthzMembers"
-        // })
-        // .then(() => {
-        // insert "AuthzMembers"
-        // })
-        .then(result => {
-            logger.info(`${chalk.green(`✓`)}  Exiting.`);
-            logger.end();
-            process.exit(0);
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            logger.end();
-            process.exit(-1);
-        })
-);
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "Content" WHERE "contentId" IN ?`;
+        return data.sourceClient.execute(query, [data.allResourceIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No Content rows found...`);
+
+            return;
+        }
+
+        data.allContentIds = _.pluck(result.rows, "contentId");
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                params: [
+                    row.contentId,
+                    row.created,
+                    row.createdBy,
+                    row.description,
+                    row.displayName,
+                    row.etherpadGroupId,
+                    row.etherpadPadId,
+                    row.filename,
+                    row.largeUri,
+                    row.lastModified,
+                    row.latestRevisionId,
+                    row.link,
+                    row.mediumUri,
+                    row.mime,
+                    row.previews,
+                    row.resourceSubType,
+                    row.size,
+                    row.smallUri,
+                    row.status,
+                    row.tenantAlias,
+                    row.thumbnailUri,
+                    row.uri,
+                    row.visibility,
+                    row.wideUri
+                ]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "RevisionByContent" WHERE "contentId" IN ?`;
+        return data.sourceClient.execute(query, [data.allContentIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No RevisionByContent rows found...`
+            );
+
+            return;
+        }
+
+        data.allRevisionIds = _.pluck(result.rows, "revisionId");
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "RevisionByContent" ("contentId", created, "revisionId") VALUES (?, ?, ?)`,
+                params: [row.contentId, row.created, row.revisionId]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting RevisionByContent...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(result => {
+        logger.info(`${chalk.green(`✓`)}  Exiting.`);
+        logger.end();
+        process.exit(0);
+    })
+    .catch(e => {
+        logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+        logger.end();
+        process.exit(-1);
+    });
+// .finally(() => {
+// });
