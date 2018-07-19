@@ -15,7 +15,7 @@
 
 // TODO
 // [x] promisify some bits
-// [ ] winston logs
+// [x] winston logs
 // [ ] Organize with more files
 
 const _ = require("underscore");
@@ -209,6 +209,10 @@ return (
             });
             createAllTables.push({
                 query: `CREATE TABLE IF NOT EXISTS "AuthzRoles" ("principalId" text, "resourceId" text, "role" text, PRIMARY KEY ("principalId", "resourceId")) WITH COMPACT STORAGE`,
+                params: []
+            });
+            createAllTables.push({
+                query: `CREATE TABLE IF NOT EXISTS "Content" ("contentId" text PRIMARY KEY, "tenantAlias" text, "visibility" text, "displayName" text, "description" text, "resourceSubType" text, "createdBy" text, "created" text, "lastModified" text, "latestRevisionId" text, "uri" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadGroupId" text, "etherpadPadId" text, "filename" text, "link" text, "mime" text, "size" text)`,
                 params: []
             });
 
@@ -478,6 +482,7 @@ return (
                 return;
             }
 
+            data.allResources = _.pluck(result.rows, "resourceId");
             let allInserts = [];
             result.rows.forEach(row => {
                 allInserts.push({
@@ -488,10 +493,53 @@ return (
             logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
             return data.targetClient.batch(allInserts, { prepare: true });
         })
-        // .then(() => {
-        // })
-        // .then(() => {
-        // })
+        .then(() => {
+            let query = `SELECT * FROM "Content" WHERE "contentId" IN ?`;
+            return data.sourceClient.execute(query, [data.allResources]);
+        })
+        .then(result => {
+            if (_.isEmpty(result.rows)) {
+                logger.info(`${chalk.green(`✓`)}  No Content rows found...`);
+
+                return;
+            }
+
+            data.allContent = result.rows;
+            let allInserts = [];
+            result.rows.forEach(row => {
+                allInserts.push({
+                    query: `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    params: [
+                        row.contentId,
+                        row.created,
+                        row.createdBy,
+                        row.description,
+                        row.displayName,
+                        row.etherpadGroupId,
+                        row.etherpadPadId,
+                        row.filename,
+                        row.largeUri,
+                        row.lastModified,
+                        row.latestRevisionId,
+                        row.link,
+                        row.mediumUri,
+                        row.mime,
+                        row.previews,
+                        row.resourceSubType,
+                        row.size,
+                        row.smallUri,
+                        row.status,
+                        row.tenantAlias,
+                        row.thumbnailUri,
+                        row.uri,
+                        row.visibility,
+                        row.wideUri
+                    ]
+                });
+            });
+            logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
+            return data.targetClient.batch(allInserts, { prepare: true });
+        })
         // .then(() => {
         // query "AuthzMembers"
         // })
