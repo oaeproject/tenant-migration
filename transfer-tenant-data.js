@@ -808,8 +808,36 @@ return initConnection(sourceDatabase)
         );
         return data.targetClient.batch(allInserts, { prepare: true });
     })
-    .then(() => {})
-    .then(() => {})
+    .then(() => {
+        // MessageBoxRecentContributions
+        let query = `SELECT * FROM "MessageBoxRecentContributions" WHERE "messageBoxId" IN ?`;
+        return data.sourceClient.execute(query, [
+            data.discussionsFromThisTenancyAlone
+        ]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(
+                    `✓`
+                )}  No MessageBoxRecentContributions rows found...`
+            );
+
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "MessageBoxRecentContributions" ("messageBoxId", "contributorId", value) VALUES (?, ?, ?)`,
+                params: [row.messageBoxId, row.contributorId, row.value]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting MessageBoxRecentContributions...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
         logger.end();
