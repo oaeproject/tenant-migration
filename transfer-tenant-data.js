@@ -736,11 +736,42 @@ return initConnection(sourceDatabase)
         let messageIds = _.map(
             data.threadKeysFromThisTenancyAlone,
             eachElement => {
-                return `${eachElement.messageBoxId}#${eachElement.threadKey}`;
+                return `${
+                    eachElement.messageBoxId
+                }#${eachElement.threadKey.slice(
+                    0,
+                    eachElement.threadKey.length - 1
+                )}`;
             }
         );
         // debug
         console.dir(messageIds, { colors: true });
+
+        let query = `SELECT * FROM "Messages" WHERE id IN ?`;
+        return data.sourceClient.execute(query, [messageIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No Messages rows found...`);
+
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "Messages" (id, body, "createdBy", deleted, "threadKey") VALUES (?, ?, ?, ?, ?)`,
+                params: [
+                    row.id,
+                    row.body,
+                    row.createdBy,
+                    row.deleted,
+                    row.threadKey
+                ]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting Messages...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
     })
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
