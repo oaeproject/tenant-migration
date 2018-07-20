@@ -233,6 +233,14 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "MessageBoxMessages" ("messageBoxId" text, "threadKey" text, "value" text, PRIMARY KEY ("messageBoxId", "threadKey")) WITH COMPACT STORAGE'
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "MessageBoxMessagesDeleted" ("messageBoxId" text, "createdTimestamp" text, "value" text, PRIMARY KEY ("messageBoxId", "createdTimestamp")) WITH COMPACT STORAGE'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "MessageBoxRecentContributions" ("messageBoxId" text, "contributorId" text, "value" text, PRIMARY KEY ("messageBoxId", "contributorId")) WITH COMPACT STORAGE'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -744,9 +752,6 @@ return initConnection(sourceDatabase)
                 )}`;
             }
         );
-        // debug
-        console.dir(messageIds, { colors: true });
-
         let query = `SELECT * FROM "Messages" WHERE id IN ?`;
         return data.sourceClient.execute(query, [messageIds]);
     })
@@ -773,6 +778,38 @@ return initConnection(sourceDatabase)
         logger.info(`${chalk.green(`✓`)}  Inserting Messages...`);
         return data.targetClient.batch(allInserts, { prepare: true });
     })
+    .then(() => {
+        // MessageBoxMessagesDeleted
+        let query = `SELECT * FROM "MessageBoxMessagesDeleted" WHERE "messageBoxId" IN ?`;
+        return data.sourceClient.execute(query, [
+            data.discussionsFromThisTenancyAlone
+        ]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(
+                    `✓`
+                )}  No MessageBoxMessagesDeleted rows found...`
+            );
+
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "MessageBoxMessagesDeleted" ("messageBoxId", "createdTimestamp", value) VALUES (?, ? ,?)`,
+                params: [row.messageBoxId, row.createdTimestamp, row.value]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting MessageBoxMessagesDeleted...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {})
+    .then(() => {})
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
         logger.end();
