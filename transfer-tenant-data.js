@@ -221,6 +221,10 @@ return initConnection(sourceDatabase)
         createAllTables.push({
             query: `CREATE TABLE IF NOT EXISTS "Revisions" ("revisionId" text PRIMARY KEY, "contentId" text, "created" text, "createdBy" text, "filename" text, "mime" text, "size" text, "uri" text, "previewsId" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadHtml" text)`
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "Discussions" ("id" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" text, "lastModified" text)'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -432,7 +436,7 @@ return initConnection(sourceDatabase)
                 params: [
                     row.id,
                     row.created,
-                    row.createBy,
+                    row.createdBy,
                     row.description,
                     row.displayName,
                     row.groupId,
@@ -599,6 +603,67 @@ return initConnection(sourceDatabase)
             });
         });
         logger.info(`${chalk.green(`✓`)}  Inserting Revisions...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        // lets query discussions and all messages
+        function doAllTheThings() {
+            let query = `SELECT * FROM "Discussions"`;
+            var com = data.sourceClient.stream(query);
+            var p = new Promise(function(resolve, reject) {
+                com.on("end", resolve);
+                com.on("error", reject);
+            });
+            p.on = function() {
+                com.on.apply(com, arguments);
+                return p;
+            };
+            return p;
+        }
+
+        // query "Discussions" - This is very very inadequate but we can't filter it!
+        data.allRows = [];
+        data.discussionsFromThisTenancyAlone = [];
+
+        return doAllTheThings().on("readable", function() {
+            // 'readable' is emitted as soon a row is received and parsed
+            let row;
+            while ((row = this.read())) {
+                if (
+                    row.tenantAlias &&
+                    row.tenantAlias === sourceDatabase.tenantAlias
+                ) {
+                    data.allRows.push(row);
+                    data.discussionsFromThisTenancyAlone.push(row.id);
+                }
+            }
+        });
+    })
+    .then(() => {
+        let result = data.allRows;
+        if (_.isEmpty(result)) {
+            logger.info(`${chalk.green(`✓`)}  No Discussions rows found...`);
+
+            return;
+        }
+
+        let allInserts = [];
+        result.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "Discussions" (id, created, "createdBy", description, "displayName", "lastModified", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                params: [
+                    row.id,
+                    row.created,
+                    row.createdBy,
+                    row.description,
+                    row.displayName,
+                    row.lastModified,
+                    row.tenantAlias,
+                    row.visibility
+                ]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting Discussions...`);
         return data.targetClient.batch(allInserts, { prepare: true });
     })
     .then(result => {
