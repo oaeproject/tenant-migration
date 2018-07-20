@@ -225,6 +225,14 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "Discussions" ("id" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" text, "lastModified" text)'
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "Messages" ("id" text PRIMARY KEY, "threadKey" text, "createdBy" text, "body" text, "deleted" text)'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "MessageBoxMessages" ("messageBoxId" text, "threadKey" text, "value" text, PRIMARY KEY ("messageBoxId", "threadKey")) WITH COMPACT STORAGE'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -665,6 +673,74 @@ return initConnection(sourceDatabase)
         });
         logger.info(`${chalk.green(`✓`)}  Inserting Discussions...`);
         return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        // lets query discussions and all messages
+        function doAllTheThings() {
+            let query = `SELECT * FROM "MessageBoxMessages" WHERE "messageBoxId" IN ?`;
+            var com = data.sourceClient.stream(query, [
+                data.discussionsFromThisTenancyAlone
+            ]);
+            var p = new Promise(function(resolve, reject) {
+                com.on("end", resolve);
+                com.on("error", reject);
+            });
+            p.on = function() {
+                com.on.apply(com, arguments);
+                return p;
+            };
+            return p;
+        }
+
+        // query "Messages" - This is very very inadequate but we can't filter it!
+        data.allRows = [];
+        data.threadKeysFromThisTenancyAlone = [];
+
+        return doAllTheThings().on("readable", function() {
+            // 'readable' is emitted as soon a row is received and parsed
+            let row;
+            while ((row = this.read())) {
+                if (row.threadKey) {
+                    data.allRows.push(row);
+                    data.threadKeysFromThisTenancyAlone.push({
+                        messageBoxId: row.messageBoxId,
+                        threadKey: _.last(row.threadKey.split("#"))
+                    });
+                }
+            }
+        });
+    })
+    .then(() => {
+        // insert "MessageBoxMessages"
+        let result = data.allRows;
+        if (_.isEmpty(result)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No MessageBoxMessages rows found...`
+            );
+
+            return;
+        }
+
+        let allInserts = [];
+        result.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "MessageBoxMessages" ("messageBoxId", "threadKey", value) VALUES (?, ?, ?)`,
+                params: [row.messageBoxId, row.threadKey, row.value]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting MessageBoxMessages...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let result = data.threadKeysFromThisTenancyAlone; // this is an object, not an array
+        let messageIds = _.map(
+            data.threadKeysFromThisTenancyAlone,
+            eachElement => {
+                return `${eachElement.messageBoxId}#${eachElement.threadKey}`;
+            }
+        );
+        // debug
+        console.dir(messageIds, { colors: true });
     })
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
