@@ -13,159 +13,20 @@
  * permissions and limitations under the License.
  */
 
-// TODO
-// [x] promisify some bits
-// [x] winston logs
-// [ ] Organize with more files
-
 const _ = require("underscore");
 const chalk = require("chalk");
-const { createLogger, format, transports } = require("winston");
-const { combine, timestamp, label, printf } = format;
-const cassandra = require("cassandra-driver");
-const dataTypes = require("cassandra-driver").types.dataTypes;
-const Row = require("cassandra-driver").types.Row;
-const Cassandra = require("oae-util/lib/cassandra");
+const fs = require("fs");
 
-/**
- * Here's how it works
- * 1 We fetch all the tenancy data so that we create it somewhere else
- */
+const logger = require("./logger");
+const { initConnection } = require("./db");
 
-const sourceDatabase = {
-    keyspace: "oae",
-    host: "localhost",
-    timeout: 3000,
-    tenantAlias: "uc",
-    strategyClass: "SimpleStrategy",
-    replication: 1
-};
+// read json file with source database and keyspace
+let fileContents = fs.readFileSync("source-database.json");
+const { sourceDatabase } = JSON.parse(fileContents);
 
-const targetDatabase = {
-    keyspace: "oaeTransfer",
-    host: "localhost",
-    timeout: 3000,
-    tenantAlias: "uc",
-    strategyClass: "SimpleStrategy",
-    replication: 1
-};
-
-const myFormat = printf(info => {
-    return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
-});
-
-const logger = createLogger({
-    level: "info",
-    format: combine(
-        label({ label: "Tenancy data migration" }),
-        timestamp(),
-        myFormat
-    ),
-    transports: [new transports.Console()]
-});
-
-const createNewClient = function(dbParams, keyspace) {
-    const loadBalancingPolicy = new cassandra.policies.loadBalancing.RoundRobinPolicy();
-    const reconnectionPolicy = new cassandra.policies.reconnection.ConstantReconnectionPolicy(
-        dbParams.timeout
-    );
-
-    let config = {
-        contactPoints: [dbParams.host],
-        policies: {
-            timestampGeneration: null,
-            loadBalancing: loadBalancingPolicy,
-            reconnection: reconnectionPolicy
-        },
-        // keyspace: keyspace,
-        protocolOptions: { maxVersion: 3 },
-        socketOptions: {
-            connectTimeout: dbParams.timeout
-        },
-        consistency: cassandra.types.consistencies.quorum
-    };
-
-    if (keyspace) {
-        config.keyspace = keyspace;
-    }
-
-    return new cassandra.Client(config);
-};
-
-const initConnection = function(dbParams) {
-    logger.info(
-        `${chalk.green(`✓`)}  Initialising connection to ${dbParams.host}/${
-            dbParams.keyspace
-        }`
-    );
-    let client = createNewClient(dbParams);
-
-    return client
-        .connect()
-        .then(() => {
-            return keyspaceExists(dbParams, client);
-        })
-        .then(exists => {
-            if (!exists) {
-                return createKeyspace(dbParams, client);
-            } else {
-                return;
-            }
-        })
-        .then(() => {
-            client = createNewClient(dbParams, dbParams.keyspace);
-            return client;
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
-};
-
-const keyspaceExists = function(dbParams, client) {
-    const query = `SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = '${
-        dbParams.keyspace
-    }'`;
-
-    return client
-        .execute(query)
-        .then(result => {
-            return !_.isEmpty(result.rows);
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
-};
-
-const createKeyspace = function(dbParams, client) {
-    var options = {
-        name: dbParams.keyspace,
-        strategyClass: dbParams.strategyClass,
-        replication: dbParams.replication
-    };
-
-    const query = `CREATE KEYSPACE IF NOT EXISTS "${
-        dbParams.keyspace
-    }" WITH REPLICATION = { 'class': '${
-        dbParams.strategyClass
-    }', 'replication_factor': ${dbParams.replication} };`;
-
-    return client
-        .execute(query)
-        .then(result => {
-            logger.info(
-                `${chalk.green(`✓`)}  Created keyspace ${
-                    dbParams.keyspace
-                } on ${dbParams.host}`
-            );
-            return true;
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
-};
+// read json file with target database and keyspace
+fileContents = fs.readFileSync("target-database.json");
+const { targetDatabase } = JSON.parse(fileContents);
 
 let data = {};
 let tenantPrincipals = [];
@@ -182,106 +43,7 @@ return (
             data.targetClient = targetClient;
 
             // create all the tables we need
-            let createAllTables = [];
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Principals" ("principalId" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "description" text, "email" text, "emailPreference" text, "visibility" text, "joinable" text, "lastModified" text, "locale" text, "publicAlias" text, "largePictureUri" text, "mediumPictureUri" text, "smallPictureUri" text, "admin:global" text, "admin:tenant" text, "notificationsUnread" text, "notificationsLastRead" text, "acceptedTC" text, "createdBy" text, "created" timestamp, "deleted" timestamp)`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "PrincipalsByEmail" ("email" text, "principalId" text, PRIMARY KEY ("email", "principalId"))`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Tenant" ("alias" text PRIMARY KEY, "displayName" text, "host" text, "emailDomains" text, "countryCode" text, "active" boolean)`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Folders" ("id" text PRIMARY KEY, "tenantAlias" text, "groupId" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" bigint, "lastModified" bigint, "previews" text)`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "FoldersGroupId" ("groupId" text PRIMARY KEY, "folderId" text)`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "AuthzMembers" ("resourceId" text, "memberId" text, "role" text, PRIMARY KEY ("resourceId", "memberId")) WITH COMPACT STORAGE`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "AuthzRoles" ("principalId" text, "resourceId" text, "role" text, PRIMARY KEY ("principalId", "resourceId")) WITH COMPACT STORAGE`
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Content" ("contentId" text PRIMARY KEY, "tenantAlias" text, "visibility" text, "displayName" text, "description" text, "resourceSubType" text, "createdBy" text, "created" text, "lastModified" text, "latestRevisionId" text, "uri" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadGroupId" text, "etherpadPadId" text, "filename" text, "link" text, "mime" text, "size" text)`
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "RevisionByContent" ("contentId" text, "created" text, "revisionId" text, PRIMARY KEY ("contentId", "created")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query: `CREATE TABLE IF NOT EXISTS "Revisions" ("revisionId" text PRIMARY KEY, "contentId" text, "created" text, "createdBy" text, "filename" text, "mime" text, "size" text, "uri" text, "previewsId" text, "previews" text, "status" text, "largeUri" text, "mediumUri" text, "smallUri" text, "thumbnailUri" text, "wideUri" text, "etherpadHtml" text)`
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "Discussions" ("id" text PRIMARY KEY, "tenantAlias" text, "displayName" text, "visibility" text, "description" text, "createdBy" text, "created" text, "lastModified" text)'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "Messages" ("id" text PRIMARY KEY, "threadKey" text, "createdBy" text, "body" text, "deleted" text)'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "MessageBoxMessages" ("messageBoxId" text, "threadKey" text, "value" text, PRIMARY KEY ("messageBoxId", "threadKey")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "MessageBoxMessagesDeleted" ("messageBoxId" text, "createdTimestamp" text, "value" text, PRIMARY KEY ("messageBoxId", "createdTimestamp")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "MessageBoxRecentContributions" ("messageBoxId" text, "contributorId" text, "value" text, PRIMARY KEY ("messageBoxId", "contributorId")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "FollowingUsersFollowers" ("userId" text, "followerId" text, "value" text, PRIMARY KEY ("userId", "followerId")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "FollowingUsersFollowing" ("userId" text, "followingId" text, "value" text, PRIMARY KEY ("userId", "followingId")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "UsersGroupVisits" ("userId" text, "groupId" text, "latestVisit" text, PRIMARY KEY ("userId", "groupId"))'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthenticationLoginId" ("loginId" text PRIMARY KEY, "userId" text, "password" text, "secret" text)'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthenticationUserLoginId" ("userId" text, "loginId" text, "value" text, PRIMARY KEY ("userId", "loginId")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "OAuthAccessToken" ("token" text PRIMARY KEY, "userId" text, "clientId" text)'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "OAuthAccessTokenByUser" ("userId" text, "clientId" text, "token" text, PRIMARY KEY ("userId", "clientId")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "Config" ("tenantAlias" text, "configKey" text, "value" text, PRIMARY KEY ("tenantAlias", "configKey")) WITH COMPACT STORAGE'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthzInvitations" ("resourceId" text, "email" text, "inviterUserId" text, "role" text, PRIMARY KEY ("resourceId", "email"))'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthzInvitationsResourceIdByEmail" ("email" text, "resourceId" text, PRIMARY KEY ("email", "resourceId"))'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthzInvitationsTokenByEmail" ("email" text PRIMARY KEY, "token" text)'
-            });
-            createAllTables.push({
-                query:
-                    'CREATE TABLE IF NOT EXISTS "AuthzInvitationsEmailByToken" ("token" text PRIMARY KEY, "email" text)'
-            });
+            let createAllTables = require("./schema.js");
 
             allPromises = [];
             createAllTables.forEach(eachCreateStatement => {

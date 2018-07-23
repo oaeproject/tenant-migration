@@ -1,0 +1,10 @@
+{
+    "sourceDatabase": {
+        "keyspace": "oae",
+        "host": "localhost",
+        "timeout": 3000,
+        "tenantAlias": "uc",
+        "strategyClass": "SimpleStrategy",
+        "replication": 1
+    }
+}
