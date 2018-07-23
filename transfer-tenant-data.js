@@ -261,6 +261,18 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "AuthenticationUserLoginId" ("userId" text, "loginId" text, "value" text, PRIMARY KEY ("userId", "loginId")) WITH COMPACT STORAGE'
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "OAuthAccessToken" ("token" text PRIMARY KEY, "userId" text, "clientId" text)'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "OAuthAccessTokenByUser" ("userId" text, "clientId" text, "token" text, PRIMARY KEY ("userId", "clientId")) WITH COMPACT STORAGE'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "Config" ("tenantAlias" text, "configKey" text, "value" text, PRIMARY KEY ("tenantAlias", "configKey")) WITH COMPACT STORAGE'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -981,7 +993,54 @@ return initConnection(sourceDatabase)
         );
         return data.targetClient.batch(allInserts, { prepare: true });
     })
+    .then(() => {
+        let query = `SELECT * FROM "OAuthClientsByUser" WHERE "userId" IN ?`;
+        return data.sourceClient.execute(query, [tenantUsers]);
+    })
     .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No OAuthClientsByUser rows found...`
+            );
+            return;
+        }
+
+        data.allOauthClientsIds = _.pluck(result.rows, "clientId");
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "OAuthClientsByUser" ("userId", "clientId", value) VALUES (?, ?, ?)`,
+                params: [row.userId, row.clientId, row.value]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting OAuthClientsByUser...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "OAuthClient" WHERE id IN ?`;
+        if (_.isEmpty(data.allOauthClientsIds)) {
+            return [];
+        }
+
+        return data.sourceClient.execute(query, [data.allOauthClientsIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(`${chalk.green(`✓`)}  No OAuthClient rows found...`);
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "OAuthClient" (id, "displayName", secret, "userId") VALUES (?, ?, ?, ?)`,
+                params: [row.id, row.displayName, row.secret, row.userId]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting OAuthClient...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
         logger.end();
         process.exit(0);
