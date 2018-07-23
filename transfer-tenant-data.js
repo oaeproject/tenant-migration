@@ -253,6 +253,14 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "UsersGroupVisits" ("userId" text, "groupId" text, "latestVisit" text, PRIMARY KEY ("userId", "groupId"))'
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "AuthenticationLoginId" ("loginId" text PRIMARY KEY, "userId" text, "password" text, "secret" text)'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "AuthenticationUserLoginId" ("userId" text, "loginId" text, "value" text, PRIMARY KEY ("userId", "loginId")) WITH COMPACT STORAGE'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -919,6 +927,57 @@ return initConnection(sourceDatabase)
         });
         logger.info(
             `${chalk.green(`✓`)}  Inserting FollowingUsersFollowing...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "AuthenticationUserLoginId" WHERE "userId" IN ?`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(
+                    `✓`
+                )}  No AuthenticationUserLoginId rows found...`
+            );
+            return;
+        }
+
+        data.allLoginIds = _.pluck(result.rows, "loginId");
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "AuthenticationUserLoginId" ("userId", "loginId", "value") VALUES (?, ?, ?)`,
+                params: [row.userId, row.loginId, row.value]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting AuthenticationUserLoginId...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {
+        let query = `SELECT * FROM "AuthenticationLoginId" WHERE "loginId" IN ?`;
+        return data.sourceClient.execute(query, [data.allLoginIds]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No AuthenticationLoginId rows found...`
+            );
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "AuthenticationLoginId" ("loginId", password, secret, "userId") VALUES (?, ?, ?, ?)`,
+                params: [row.loginId, row.password, row.secret, row.userId]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting AuthenticationUserLoginId...`
         );
         return data.targetClient.batch(allInserts, { prepare: true });
     })
