@@ -873,8 +873,55 @@ return initConnection(sourceDatabase)
         logger.info(`${chalk.green(`✓`)}  Inserting UsersGroupVisits...`);
         return data.targetClient.batch(allInserts, { prepare: true });
     })
-    .then(() => {})
-    .then(() => {})
+    .then(() => {
+        let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ?`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No FollowingUsersFollowers rows found...`
+            );
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`,
+                params: [row.userId, row.followerId, row.value]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting FollowingUsersFollowers...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+
+    .then(() => {
+        let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ?`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No FollowingUsersFollowing rows found...`
+            );
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`,
+                params: [row.userId, row.followingId, row.value]
+            });
+        });
+        logger.info(
+            `${chalk.green(`✓`)}  Inserting FollowingUsersFollowing...`
+        );
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
         logger.end();
