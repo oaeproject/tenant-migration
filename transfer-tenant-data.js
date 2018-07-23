@@ -241,6 +241,18 @@ return initConnection(sourceDatabase)
             query:
                 'CREATE TABLE IF NOT EXISTS "MessageBoxRecentContributions" ("messageBoxId" text, "contributorId" text, "value" text, PRIMARY KEY ("messageBoxId", "contributorId")) WITH COMPACT STORAGE'
         });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "FollowingUsersFollowers" ("userId" text, "followerId" text, "value" text, PRIMARY KEY ("userId", "followerId")) WITH COMPACT STORAGE'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "FollowingUsersFollowing" ("userId" text, "followingId" text, "value" text, PRIMARY KEY ("userId", "followingId")) WITH COMPACT STORAGE'
+        });
+        createAllTables.push({
+            query:
+                'CREATE TABLE IF NOT EXISTS "UsersGroupVisits" ("userId" text, "groupId" text, "latestVisit" text, PRIMARY KEY ("userId", "groupId"))'
+        });
 
         allPromises = [];
         createAllTables.forEach(eachCreateStatement => {
@@ -838,6 +850,31 @@ return initConnection(sourceDatabase)
         );
         return data.targetClient.batch(allInserts, { prepare: true });
     })
+    .then(() => {
+        let query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ?`;
+        return data.sourceClient.execute(query, [tenantPrincipals]);
+    })
+    .then(result => {
+        if (_.isEmpty(result.rows)) {
+            logger.info(
+                `${chalk.green(`✓`)}  No UsersGroupVisits rows found...`
+            );
+
+            return;
+        }
+
+        let allInserts = [];
+        result.rows.forEach(row => {
+            allInserts.push({
+                query: `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`,
+                params: [row.userId, row.groupId, row.latestVisit]
+            });
+        });
+        logger.info(`${chalk.green(`✓`)}  Inserting UsersGroupVisits...`);
+        return data.targetClient.batch(allInserts, { prepare: true });
+    })
+    .then(() => {})
+    .then(() => {})
     .then(result => {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
         logger.end();
