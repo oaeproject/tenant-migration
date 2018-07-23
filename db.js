@@ -76,34 +76,28 @@ const keyspaceExists = function(dbParams, client) {
         });
 };
 
-const initConnection = function(dbParams) {
+const initConnection = async function(dbParams) {
     logger.info(
         `${chalk.green(`✓`)}  Initialising connection to ${dbParams.host}/${
             dbParams.keyspace
         }`
     );
-    let client = createNewClient(dbParams);
 
-    return client
-        .connect()
-        .then(() => {
-            return keyspaceExists(dbParams, client);
-        })
-        .then(exists => {
-            if (!exists) {
-                return createKeyspace(dbParams, client);
-            } else {
-                return;
-            }
-        })
-        .then(() => {
-            client = createNewClient(dbParams, dbParams.keyspace);
-            return client;
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
+    try {
+        let client = createNewClient(dbParams);
+        await client.connect();
+        let exists = await keyspaceExists(dbParams, client);
+        // .then(exists => {
+        if (!exists) {
+            await createKeyspace(dbParams, client);
+        }
+
+        client = await createNewClient(dbParams, dbParams.keyspace);
+        return client;
+    } catch (error) {
+        logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + error);
+        process.exit(-1);
+    }
 };
 
 module.exports = {
