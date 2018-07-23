@@ -861,6 +861,9 @@ return (
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
+            if (_.isEmpty(data.allInvitationEmails)) {
+                return [];
+            }
             let query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ?`;
             return data.sourceClient.execute(query, [data.allInvitationEmails]);
         })
@@ -889,6 +892,9 @@ return (
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
+            if (_.isEmpty(data.allInvitationEmails)) {
+                return [];
+            }
             let query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ?`;
             return data.sourceClient.execute(query, [data.allInvitationEmails]);
         })
@@ -919,6 +925,9 @@ return (
             return data.targetClient.batch(allInserts, { prepare: true });
         })
         .then(() => {
+            if (_.isEmpty(data.allInvitationTokens)) {
+                return [];
+            }
             let query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ?`;
             return data.sourceClient.execute(query, [data.allInvitationTokens]);
         })
