@@ -31,7 +31,7 @@ const createNewClient = function(dbParams, keyspace) {
     return new cassandra.Client(config);
 };
 
-const createKeyspace = function(dbParams, client) {
+const createKeyspace = async function(dbParams, client) {
     var options = {
         name: dbParams.keyspace,
         strategyClass: dbParams.strategyClass,
@@ -44,36 +44,32 @@ const createKeyspace = function(dbParams, client) {
         dbParams.strategyClass
     }', 'replication_factor': ${dbParams.replication} };`;
 
-    return client
-        .execute(query)
-        .then(result => {
-            logger.info(
-                `${chalk.green(`✓`)}  Created keyspace ${
-                    dbParams.keyspace
-                } on ${dbParams.host}`
-            );
-            return true;
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
+    try {
+        let result = await client.execute(query);
+        logger.info(
+            `${chalk.green(`✓`)}  Created keyspace ${dbParams.keyspace} on ${
+                dbParams.host
+            }`
+        );
+        return !!result;
+    } catch (error) {
+        logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+        process.exit(-1);
+    }
 };
 
-const keyspaceExists = function(dbParams, client) {
+const keyspaceExists = async function(dbParams, client) {
     const query = `SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = '${
         dbParams.keyspace
     }'`;
 
-    return client
-        .execute(query)
-        .then(result => {
-            return !_.isEmpty(result.rows);
-        })
-        .catch(e => {
-            logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
-            process.exit(-1);
-        });
+    try {
+        let result = await client.execute(query);
+        return !_.isEmpty(result.rows);
+    } catch (error) {
+        logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + e);
+        process.exit(-1);
+    }
 };
 
 const initConnection = async function(dbParams) {
@@ -87,7 +83,6 @@ const initConnection = async function(dbParams) {
         let client = createNewClient(dbParams);
         await client.connect();
         let exists = await keyspaceExists(dbParams, client);
-        // .then(exists => {
         if (!exists) {
             await createKeyspace(dbParams, client);
         }
