@@ -1,5 +1,5 @@
 /*!
- * Copyright 2014 Apereo Foundation (AF) Licensed under the
+ * Copyright 2018 Apereo Foundation (AF) Licensed under the
  * Educational Community License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may
  * obtain a copy of the License at
@@ -240,7 +240,7 @@ const init = async function() {
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
     } catch (error) {
         logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + error);
-        console.dir(error, { colors: true });
+        logger.error(error.stack);
         process.exit(-1);
     } finally {
         logger.end();
