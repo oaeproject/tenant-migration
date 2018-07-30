@@ -56,13 +56,37 @@ const insertAllAuthzMembers = async function(targetClient, result) {
 
     let allInserts = [];
     result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
-            params: [row.resourceId, row.memberId, row.role]
-        });
+        allInserts.push(
+            new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve(
+                        targetClient
+                            .execute(
+                                `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
+                                [row.resourceId, row.memberId, row.role]
+                            )
+                            .then(resolve())
+                            .catch(e => {
+                                reject(e);
+                            })
+                    );
+                }, 1000);
+            })
+        );
     });
     logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    // await targetClient.batch(allInserts, { prepare: true });
+    // const firstTask = allInserts.shift();
+
+    async function runAll(allInserts) {
+        for (const insertQuery of allInserts) {
+            await insertQuery;
+            console.log(".");
+        }
+    }
+    console.log("Total inserts to AuthzMembers is: " + allInserts.length);
+    await runAll(allInserts);
+    // await Promise.all(allInserts);
 };
 
 module.exports = {
