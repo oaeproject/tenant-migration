@@ -100,7 +100,7 @@ const copyAllFolders = async function(sourceClient, targetClient) {
 const copyFoldersGroupIds = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.folderGroupIdsFromThisTenancyAlone)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching FoldersGroupId rows...`
+            `${chalk.green(`✗`)}  Skipped fetching FoldersGroupId rows...\n`
         );
         return [];
     }

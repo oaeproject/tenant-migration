@@ -66,7 +66,7 @@ const copyAuthzInvitationsResourceIdByEmail = async function(
         logger.info(
             `${chalk.green(
                 `✗`
-            )}  Skipped fetching AuthzInvitationsResourceIdByEmail rows...`
+            )}  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`
         );
         return [];
     }
@@ -118,7 +118,7 @@ const copyAuthzInvitationsTokenByEmail = async function(
         logger.info(
             `${chalk.green(
                 `✗`
-            )}  Skipped fetching AuthzInvitationsTokenByEmail rows...`
+            )}  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`
         );
         return [];
     }
@@ -170,7 +170,7 @@ const copyAuthzInvitationsEmailByToken = async function(
         logger.info(
             `${chalk.green(
                 `✗`
-            )}  Skipped fetching AuthzInvitationsEmailByToken rows...`
+            )}  Skipped fetching AuthzInvitationsEmailByToken rows...\n`
         );
         return [];
     }

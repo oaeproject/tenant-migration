@@ -70,7 +70,9 @@ const copyAuthenticationUserLoginId = async function(
 const copyAuthenticationLoginId = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.allLoginIds)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching AuthentiationLoginId rows...`
+            `${chalk.green(
+                `✗`
+            )}  Skipped fetching AuthentiationLoginId rows...\n`
         );
         return [];
     }
@@ -115,7 +117,7 @@ const copyAuthenticationLoginId = async function(sourceClient, targetClient) {
 const copyOAuthClients = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.allOauthClientsIds)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching OAuthClient rows...`
+            `${chalk.green(`✗`)}  Skipped fetching OAuthClient rows...\n`
         );
         return [];
     }

@@ -102,7 +102,7 @@ const insertAllAuthzMembers = async function(targetClient, result) {
     // insert authzmembers
     if (_.isEmpty(result.rows)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching AuthzMembers rows...`
+            `${chalk.green(`✗`)}  Skipped fetching AuthzMembers rows...\n`
         );
         return;
     }

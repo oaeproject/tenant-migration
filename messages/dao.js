@@ -108,7 +108,7 @@ const copyMessageBoxMessages = async function(sourceClient, targetClient) {
 
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching MessageBoxMessages rows...`
+            `${chalk.green(`✗`)}  Skipped fetching MessageBoxMessages rows...\n`
         );
         return [];
     }
@@ -179,7 +179,7 @@ const copyMessages = async function(sourceClient, targetClient) {
     let allRows = [];
 
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
-        logger.info(`${chalk.green(`✗`)}  Skipped fetching Messages rows...`);
+        logger.info(`${chalk.green(`✗`)}  Skipped fetching Messages rows...\n`);
         return [];
     }
     // lets query discussions and all messages
@@ -246,7 +246,7 @@ const copyMessageBoxMessagesDeleted = async function(
         logger.info(
             `${chalk.green(
                 `✗`
-            )}  Skipped fetching MessageBoxMessagesDeleted rows...`
+            )}  Skipped fetching MessageBoxMessagesDeleted rows...\n`
         );
         return [];
     }
@@ -297,7 +297,7 @@ const copyMessageBoxRecentContributions = async function(
         logger.info(
             `${chalk.green(
                 `✗`
-            )}  Skipped fetching MessageBoxRecentContributions rows...`
+            )}  Skipped fetching MessageBoxRecentContributions rows...\n`
         );
         return [];
     }
