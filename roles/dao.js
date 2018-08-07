@@ -18,39 +18,92 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 
-const selectAuthzRoles = function(sourceClient) {
-    let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ?`;
-    return sourceClient.execute(query, [store.tenantPrincipals]);
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
 };
 
-const insertAuthzRoles = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No AuthzRoles rows found...`);
+const copyAuthzRoles = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT 999999`;
+    let insertQuery = `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`;
+    let counter = 0;
 
-        return;
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    store.allResourceIds = _.pluck(result.rows, "resourceId");
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.principalId, row.resourceId, row.role],
+                clientOptions
+            );
+        }
     }
 
-    store.allResourceIds = _.pluck(result.rows, "resourceId");
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`,
-            params: [row.principalId, row.resourceId, row.role]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzRoles rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...\n`
+    );
 };
 
-const selectAuthzMembers = function(sourceClient) {
+const copyAuthzMembers = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? ALLOW FILTERING`;
-    return sourceClient.execute(query, [store.tenantPrincipals]);
+    let insertQuery = `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.resourceId, row.memberId, row.role],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } AuthzMembers rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzMembers rows...\n`
+    );
 };
 
 const insertAllAuthzMembers = async function(targetClient, result) {
     // insert authzmembers
     if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No AuthzMembers rows found...`);
+        logger.info(
+            `${chalk.green(`✗`)}  Skipped fetching AuthzMembers rows...`
+        );
         return;
     }
 
@@ -59,29 +112,27 @@ const insertAllAuthzMembers = async function(targetClient, result) {
         allInserts.push(
             new Promise((resolve, reject) => {
                 setTimeout(() => {
-                    resolve(
-                        targetClient
-                            .execute(
-                                `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
-                                [row.resourceId, row.memberId, row.role]
-                            )
-                            .then(resolve())
-                            .catch(e => {
-                                reject(e);
-                            })
-                    );
+                    Promise.resolve(
+                        targetClient.execute(
+                            `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
+                            [row.resourceId, row.memberId, row.role]
+                        )
+                    )
+                        .then(resolve())
+                        .catch(e => {
+                            reject(e);
+                        });
                 }, 1000);
             })
         );
     });
-    logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...`);
+    logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...\n`);
     // await targetClient.batch(allInserts, { prepare: true });
     // const firstTask = allInserts.shift();
 
     async function runAll(allInserts) {
         for (const insertQuery of allInserts) {
             await insertQuery;
-            console.log(".");
         }
     }
     console.log("Total inserts to AuthzMembers is: " + allInserts.length);
@@ -90,8 +141,6 @@ const insertAllAuthzMembers = async function(targetClient, result) {
 };
 
 module.exports = {
-    selectAuthzMembers,
-    insertAllAuthzMembers,
-    selectAuthzRoles,
-    insertAuthzRoles
+    copyAuthzMembers,
+    copyAuthzRoles
 };

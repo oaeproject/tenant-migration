@@ -18,135 +18,205 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 
-const selectAuthzInvitations = function(sourceClient) {
-    let query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ?`;
-    return sourceClient.execute(query, [store.allResourceIds]);
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
 };
 
-const insertAuthzInvitations = async function(targetClient, result) {
+const copyAuthzInvitations = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ?`;
+    let insertQuery = `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(query, [store.allResourceIds]);
+    store.allInvitationEmails = _.pluck(result.rows, "email");
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.resourceId, row.email, row.inviterUserId, row.role],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } AuthzInvitations rows found...`
+    );
     if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No AuthzInvitations rows found...`);
         return;
     }
-
-    store.allInvitationEmails = _.pluck(result.rows, "email");
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`,
-            params: [row.resourceId, row.email, row.inviterUserId, row.role]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting AuthzInvitations...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzInvitations rows...\n`
+    );
 };
 
-const selectAuthzInvitationsResourceIdByEmail = function(sourceClient) {
-    if (_.isEmpty(store.allInvitationEmails)) {
-        return [];
-    }
-    let query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ?`;
-    return sourceClient.execute(query, [store.allInvitationEmails]);
-};
-
-const insertAuthzInvitationsResourceIdByEmail = async function(
-    targetClient,
-    result
+const copyAuthzInvitationsResourceIdByEmail = async function(
+    sourceClient,
+    targetClient
 ) {
-    if (_.isEmpty(result.rows)) {
+    if (_.isEmpty(store.allInvitationEmails)) {
         logger.info(
             `${chalk.green(
-                `✓`
-            )}  No AuthzInvitationsResourceIdByEmail rows found...`
+                `✗`
+            )}  Skipped fetching AuthzInvitationsResourceIdByEmail rows...`
         );
+        return [];
+    }
+
+    let query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ?`;
+    let insertQuery = `INSERT INTO "AuthzInvitationsResourceIdByEmail" (email, "resourceId") VALUES (?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(
+        query,
+        [store.allInvitationEmails],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.email, row.resourceId],
+                clientOptions
+            );
+        }
+    }
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } AuthzInvitationsResourceIdByEmail rows found...`
+    );
+    if (_.isEmpty(result.rows)) {
         return;
     }
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzInvitationsResourceIdByEmail" (email, "resourceId") VALUES (?, ?)`,
-            params: [row.email, row.resourceId]
-        });
-    });
+    await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserting AuthzInvitationsResourceIdByEmail...`
+        `${chalk.green(
+            `✓`
+        )}  Inserted ${counter} AuthzInvitationsResourceIdByEmail rows...\n`
     );
-    await targetClient.batch(allInserts, { prepare: true });
 };
 
-const selectAuthzInvitationsTokenByEmail = function(sourceClient) {
+const copyAuthzInvitationsTokenByEmail = async function(
+    sourceClient,
+    targetClient
+) {
     if (_.isEmpty(store.allInvitationEmails)) {
+        logger.info(
+            `${chalk.green(
+                `✗`
+            )}  Skipped fetching AuthzInvitationsTokenByEmail rows...`
+        );
         return [];
     }
     let query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ?`;
-    return sourceClient.execute(query, [store.allInvitationEmails]);
-};
+    let insertQuery = `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`;
+    let counter = 0;
 
-const insertAuthzInvitationsTokenByEmail = async function(
-    targetClient,
-    result
-) {
-    store.allInvitationTokens = [];
+    result = await sourceClient.execute(
+        query,
+        [store.allInvitationEmails],
+        clientOptions
+    );
+    store.allInvitationTokens = _.pluck(result.rows, "token");
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.email, row.token],
+                clientOptions
+            );
+        }
+    }
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } AuthzInvitationsTokenByEmail rows...`
+    );
     if (_.isEmpty(result.rows)) {
-        logger.info(
-            `${chalk.green(`✓`)}  No AuthzInvitationsTokenByEmail rows found...`
-        );
         return;
     }
 
-    store.allInvitationTokens = _.pluck(result.rows, "token");
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`,
-            params: [row.email, row.token]
-        });
-    });
+    await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserting AuthzInvitationsTokenIdByEmail...`
+        `${chalk.green(
+            `✓`
+        )}  Inserted ${counter} AuthzInvitationsTokenIdByEmail rows...\n`
     );
-    await targetClient.batch(allInserts, { prepare: true });
 };
-const selectAuthzInvitationsEmailByToken = function(sourceClient) {
+
+const copyAuthzInvitationsEmailByToken = async function(
+    sourceClient,
+    targetClient
+) {
     if (_.isEmpty(store.allInvitationTokens)) {
+        logger.info(
+            `${chalk.green(
+                `✗`
+            )}  Skipped fetching AuthzInvitationsEmailByToken rows...`
+        );
         return [];
     }
-    let query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ?`;
-    return sourceClient.execute(query, [store.allInvitationTokens]);
-};
 
-const insertAuthzInvitationsEmailByToken = async function(
-    targetClient,
-    result
-) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(
-            `${chalk.green(`✓`)}  No AuthzInvitationsEmailByToken rows found...`
-        );
-        return;
+    let query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ?`;
+    let insertQuery = `INSERT INTO "AuthzInvitationsEmailByToken" ("token", email) VALUES (?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(
+        query,
+        [store.allInvitationTokens],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.token, row.email],
+                clientOptions
+            );
+        }
     }
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "AuthzInvitationsEmailByToken" ("token", email) VALUES (?, ?)`,
-            params: [row.token, row.email]
-        });
-    });
     logger.info(
-        `${chalk.green(`✓`)}  Inserting AuthzInvitationsEmailByToken...`
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } AuthzInvitationsEmailByToken rows...`
     );
-    await targetClient.batch(allInserts, { prepare: true });
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(
+            `✓`
+        )}  Inserted ${counter} AuthzInvitationsEmailByToken rows...\n`
+    );
 };
 
 module.exports = {
-    selectAuthzInvitations,
-    selectAuthzInvitationsEmailByToken,
-    selectAuthzInvitationsResourceIdByEmail,
-    selectAuthzInvitationsTokenByEmail,
-    insertAuthzInvitations,
-    insertAuthzInvitationsEmailByToken,
-    insertAuthzInvitationsResourceIdByEmail,
-    insertAuthzInvitationsTokenByEmail
+    copyAuthzInvitations,
+    copyAuthzInvitationsEmailByToken,
+    copyAuthzInvitationsResourceIdByEmail,
+    copyAuthzInvitationsTokenByEmail
 };

@@ -19,57 +19,71 @@ const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
 
-const selectAllTenants = function(sourceClient) {
+const copyAllTenants = async function(sourceClient, targetClient) {
     let query = `select * from "Tenant" where "alias" = ?`;
-    return sourceClient.execute(query, [sourceDatabase.tenantAlias]);
-};
+    let result = await sourceClient.execute(query, [
+        sourceDatabase.tenantAlias
+    ]);
 
-const insertAllTenants = async function(targetClient, result) {
+    let counter = 0;
+    let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(insertQuery, [
+                row.alias,
+                row.active,
+                row.countryCode,
+                row.displayName,
+                row.emailDomains,
+                row.host
+            ]);
+        }
+    }
+
     if (_.isEmpty(result.rows)) {
         logger.info(`${chalk.green(`✓`)}  No Tenant rows found...`);
         return;
     }
-
-    let row = result.first();
-    let insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
-
-    logger.info(`${chalk.green(`✓`)}  Inserting tenant...`);
-    await targetClient.execute(insertQuery, [
-        row.alias,
-        row.active,
-        row.countryCode,
-        row.displayName,
-        row.emailDomains,
-        row.host
-    ]);
+    await insertAll(targetClient, result.rows);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Tenant rows...\n`);
 };
 
-const selectTenantConfig = function(sourceClient) {
+const copyTenantConfig = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
         sourceDatabase.tenantAlias
     }'`;
-    return sourceClient.execute(query);
-};
+    let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
+    let counter = 0;
 
-const insertTenantConfig = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No Config rows found...`);
-        return;
+    let result = await sourceClient.execute(query);
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(insertQuery, [
+                row.tenantAlias,
+                row.configKey,
+                row.configKey
+            ]);
+        }
     }
 
-    let row = result.first();
-    logger.info(`${chalk.green(`✓`)}  Inserting tenant config...`);
-    let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
-    return targetClient.execute(insertQuery, [
-        row.tenantAlias,
-        row.configKey,
-        row.configKey
-    ]);
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Config rows...\n`);
 };
 
 module.exports = {
-    selectAllTenants,
-    insertAllTenants,
-    selectTenantConfig,
-    insertTenantConfig
+    copyAllTenants,
+    copyTenantConfig
 };

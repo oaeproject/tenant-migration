@@ -3,7 +3,7 @@
         "keyspace": "oaeTransfer",
         "host": "localhost",
         "timeout": 3000,
-        "tenantAlias": "uc",
+        "tenantAlias": "up",
         "strategyClass": "SimpleStrategy",
         "replication": 1
     }

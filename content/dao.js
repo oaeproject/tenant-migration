@@ -18,125 +18,154 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 
-const selectAllContent = function(sourceClient) {
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
+};
+
+const copyAllContent = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "Content" WHERE "contentId" IN ?`;
-    return sourceClient.execute(query, [store.allResourceIds]);
-};
+    let insertQuery = `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    let counter = 0;
 
-const insertContent = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No Content rows found...`);
-
-        return;
-    }
-
+    let result = await sourceClient.execute(query, [store.allResourceIds]);
     store.allContentIds = _.pluck(result.rows, "contentId");
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            params: [
-                row.contentId,
-                row.created,
-                row.createdBy,
-                row.description,
-                row.displayName,
-                row.etherpadGroupId,
-                row.etherpadPadId,
-                row.filename,
-                row.largeUri,
-                row.lastModified,
-                row.latestRevisionId,
-                row.link,
-                row.mediumUri,
-                row.mime,
-                row.previews,
-                row.resourceSubType,
-                row.size,
-                row.smallUri,
-                row.status,
-                row.tenantAlias,
-                row.thumbnailUri,
-                row.uri,
-                row.visibility,
-                row.wideUri
-            ]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting AuthzRoles...`);
-    await targetClient.batch(allInserts, { prepare: true });
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [
+                    row.contentId,
+                    row.created,
+                    row.createdBy,
+                    row.description,
+                    row.displayName,
+                    row.etherpadGroupId,
+                    row.etherpadPadId,
+                    row.filename,
+                    row.largeUri,
+                    row.lastModified,
+                    row.latestRevisionId,
+                    row.link,
+                    row.mediumUri,
+                    row.mime,
+                    row.previews,
+                    row.resourceSubType,
+                    row.size,
+                    row.smallUri,
+                    row.status,
+                    row.tenantAlias,
+                    row.thumbnailUri,
+                    row.uri,
+                    row.visibility,
+                    row.wideUri
+                ],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Content rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...\n`
+    );
 };
 
-const selectRevisionByContent = function(sourceClient) {
+const copyRevisionByContent = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "RevisionByContent" WHERE "contentId" IN ?`;
-    return sourceClient.execute(query, [store.allContentIds]);
-};
+    let insertQuery = `INSERT INTO "RevisionByContent" ("contentId", created, "revisionId") VALUES (?, ?, ?)`;
+    let counter = 0;
 
-const insertRevisionByContent = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No RevisionByContent rows found...`);
-
-        return;
-    }
-
+    let result = await sourceClient.execute(query, [store.allContentIds]);
     store.allRevisionIds = _.pluck(result.rows, "revisionId");
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "RevisionByContent" ("contentId", created, "revisionId") VALUES (?, ?, ?)`,
-            params: [row.contentId, row.created, row.revisionId]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting RevisionByContent...`);
-    await targetClient.batch(allInserts, { prepare: true });
-};
 
-const selectRevisions = function(sourceClient) {
-    let query = `SELECT * FROM "Revisions" WHERE "revisionId" IN ?`;
-    return sourceClient.execute(query, [store.allRevisionIds]);
-};
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
 
-const insertRevisions = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No Revisions rows found...`);
-
-        return;
+            await targetClient.execute(
+                insertQuery,
+                [row.contentId, row.created, row.revisionId],
+                clientOptions
+            );
+        }
     }
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "Revisions" ("revisionId", "contentId", created, "createdBy", "etherpadHtml", filename, "largeUri", "mediumUri", mime, previews, "previewsId", size, "smallUri", status, "thumbnailUri", uri, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            params: [
-                row.revisionId,
-                row.contentId,
-                row.created,
-                row.createdBy,
-                row.etherpadHtml,
-                row.filename,
-                row.largeUri,
-                row.mediumUri,
-                row.mime,
-                row.previews,
-                row.previewsId,
-                row.size,
-                row.smallUri,
-                row.status,
-                row.thumbnailUri,
-                row.uri,
-                row.wideUri
-            ]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting Revisions...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } RevisionByContent rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} RevisionByContent rows...\n`
+    );
+};
+
+const copyRevisions = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "Revisions" WHERE "revisionId" IN ?`;
+    let insertQuery = `INSERT INTO "Revisions" ("revisionId", "contentId", created, "createdBy", "etherpadHtml", filename, "largeUri", "mediumUri", mime, previews, "previewsId", size, "smallUri", status, "thumbnailUri", uri, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(query, [store.allRevisionIds]);
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [
+                    row.revisionId,
+                    row.contentId,
+                    row.created,
+                    row.createdBy,
+                    row.etherpadHtml,
+                    row.filename,
+                    row.largeUri,
+                    row.mediumUri,
+                    row.mime,
+                    row.previews,
+                    row.previewsId,
+                    row.size,
+                    row.smallUri,
+                    row.status,
+                    row.thumbnailUri,
+                    row.uri,
+                    row.wideUri
+                ],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Revisions rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Revisions rows...\n`);
 };
 
 module.exports = {
-    selectAllContent,
-    selectRevisionByContent,
-    selectRevisions,
-    insertContent,
-    insertRevisionByContent,
-    insertRevisions
+    copyAllContent,
+    copyRevisionByContent,
+    copyRevisions
 };

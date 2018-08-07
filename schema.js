@@ -117,5 +117,8 @@ module.exports = [
     {
         query:
             'CREATE TABLE IF NOT EXISTS "AuthzInvitationsEmailByToken" ("token" text PRIMARY KEY, "email" text)'
+    },
+    {
+        query: `CREATE INDEX IF NOT EXISTS ON "Principals" ("tenantAlias")`
     }
 ];

@@ -19,15 +19,34 @@ const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
 
-const selectAllFolders = async function(sourceClient) {
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
+};
+
+const copyAllFolders = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "Folders"`;
+    let insertQuery = `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
+    let counter = 0;
     let allRows = [];
 
     function doAllTheThings() {
-        let query = `SELECT * FROM "Folders"`;
         var com = sourceClient.stream(query);
         var p = new Promise(function(resolve, reject) {
-            // com.on("end", resolve(allRows));
-            com.on("end", function() {
+            // com.on("end", resolve(allRows))
+            com.on("end", async function() {
+                logger.info(
+                    `${chalk.green(`✓`)}  Fetched ${
+                        allRows.length
+                    } Folders rows...`
+                );
+                if (_.isEmpty(allRows)) {
+                    return;
+                }
+                await insertAll(targetClient, allRows);
+                logger.info(
+                    `${chalk.green(`✓`)}  Inserted ${counter} Folders rows...\n`
+                );
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -39,7 +58,31 @@ const selectAllFolders = async function(sourceClient) {
         return p;
     }
 
-    return doAllTheThings().on("readable", function() {
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [
+                    row.id,
+                    row.created,
+                    row.createdBy,
+                    row.description,
+                    row.displayName,
+                    row.groupId,
+                    row.lastModified,
+                    row.previews,
+                    row.tenantAlias,
+                    row.visibility
+                ],
+                clientOptions
+            );
+        }
+    }
+
+    await doAllTheThings().on("readable", async function() {
         // 'readable' is emitted as soon a row is received and parsed
         let row;
         while ((row = this.read())) {
@@ -54,66 +97,49 @@ const selectAllFolders = async function(sourceClient) {
     });
 };
 
-const insertAllFolders = async function(targetClient, result) {
-    if (_.isEmpty(result)) {
-        logger.info(`${chalk.green(`✓`)}  No Folders rows found...`);
-
-        return;
-    }
-
-    let allInserts = [];
-    result.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
-            params: [
-                row.id,
-                row.created,
-                row.createdBy,
-                row.description,
-                row.displayName,
-                row.groupId,
-                row.lastModified,
-                row.previews,
-                row.tenantAlias,
-                row.visibility
-            ]
-        });
-        // store.folderGroups.push(row.groupId);
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting Folders...`);
-    await targetClient.batch(allInserts, { prepare: true });
-};
-
-const selectFoldersGroupIds = function(sourceClient) {
+const copyFoldersGroupIds = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.folderGroupIdsFromThisTenancyAlone)) {
+        logger.info(
+            `${chalk.green(`✗`)}  Skipped fetching FoldersGroupId rows...`
+        );
         return [];
     }
     let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ?`;
-    return sourceClient.execute(query, [
+    let insertQuery = `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(query, [
         store.folderGroupIdsFromThisTenancyAlone
     ]);
-};
 
-const insertFoldersGroupIds = async function(targetClient, result) {
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.groupId, row.folderId],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } FoldersGroupId rows...`
+    );
     if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No FoldersGroupId rows found...`);
-
         return;
     }
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`,
-            params: [row.groupId, row.folderId]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting FoldersGroupId...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} FoldersGroupId rows...\n`
+    );
 };
 
 module.exports = {
-    insertAllFolders,
-    insertFoldersGroupIds,
-    selectAllFolders,
-    selectFoldersGroupIds
+    copyAllFolders,
+    copyFoldersGroupIds
 };

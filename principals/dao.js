@@ -19,16 +19,21 @@ const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
 
-const selectAllPrincipals = function(sourceClient) {
-    let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ?`;
-    return sourceClient.execute(query, [sourceDatabase.tenantAlias]);
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
 };
 
-const insertAllPrincipals = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No Principals rows found...`);
-        return;
-    }
+const copyAllPrincipals = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT 999999`;
+    let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(
+        query,
+        [sourceDatabase.tenantAlias],
+        clientOptions
+    );
 
     // we'll need to know which principals are users or groups
     result.rows.forEach(row => {
@@ -40,66 +45,93 @@ const insertAllPrincipals = async function(targetClient, result) {
         }
     });
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        allInserts.push({
-            query: insertQuery,
-            params: [
-                row.principalId,
-                row.acceptedTC,
-                row.get("admin:global"),
-                row.get("admin:tenant"),
-                row.created,
-                row.createdBy,
-                row.deleted,
-                row.description,
-                row.displayName,
-                row.email,
-                row.emailPreference,
-                row.joinable,
-                row.largePictureUri,
-                row.lastModified,
-                row.locale,
-                row.mediumPictureUri,
-                row.notificationsLastRead,
-                row.notificationsUnread,
-                row.publicAlias,
-                row.smallPictureUri,
-                row.tenantAlias,
-                row.visibility
-            ]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting Principals...`);
-    await targetClient.batch(allInserts, { prepare: true });
-};
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
 
-const selectPrincipalsByEmail = function(sourceClient) {
-    let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? ALLOW FILTERING`;
-    return sourceClient.execute(query, [store.tenantPrincipals]);
-};
-
-const insertAllPrincipalsByEmail = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No PrincipalsByEmail rows found...`);
-        return;
+            await targetClient.execute(
+                insertQuery,
+                [
+                    row.principalId,
+                    row.acceptedTC,
+                    row.get("admin:global"),
+                    row.get("admin:tenant"),
+                    row.created,
+                    row.createdBy,
+                    row.deleted,
+                    row.description,
+                    row.displayName,
+                    row.email,
+                    row.emailPreference,
+                    row.joinable,
+                    row.largePictureUri,
+                    row.lastModified,
+                    row.locale,
+                    row.mediumPictureUri,
+                    row.notificationsLastRead,
+                    row.notificationsUnread,
+                    row.publicAlias,
+                    row.smallPictureUri,
+                    row.tenantAlias,
+                    row.visibility
+                ],
+                clientOptions
+            );
+        }
     }
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`,
-            params: [row.email, row.principalId]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting PrincipalsByEmail...`);
-    await targetClient.batch(allInserts, { prepare: true });
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} Principals rows...\n`
+    );
+};
+
+const copyPrincipalsByEmail = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT 999999 ALLOW FILTERING `;
+    let insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
+    let counter = 0;
+
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.email, row.principalId],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } PrincipalsByEmail rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(`✓`)}  Inserted ${counter} PrincipalsByEmail rows...\n`
+    );
 };
 
 module.exports = {
-    insertAllPrincipals,
-    insertAllPrincipalsByEmail,
-    selectAllPrincipals,
-    selectPrincipalsByEmail
+    copyAllPrincipals,
+    copyPrincipalsByEmail
 };

@@ -18,57 +18,90 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 
-const selectFollowingUsersFollowers = function(sourceClient) {
-    let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ?`;
-    return sourceClient.execute(query, [store.tenantPrincipals]);
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
 };
 
-const insertFollowingUsersFollowers = async function(targetClient, result) {
-    if (_.isEmpty(result.rows)) {
-        logger.info(
-            `${chalk.green(`✓`)}  No FollowingUsersFollowers rows found...`
-        );
-        return;
+const copyFollowingUsersFollowers = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT 999999`;
+    let insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
+    let counter = 0;
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.userId, row.followerId, row.value],
+                clientOptions
+            );
+        }
     }
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`,
-            params: [row.userId, row.followerId, row.value]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting FollowingUsersFollowers...`);
-    await targetClient.batch(allInserts, { prepare: true });
-};
-
-const selectFollowingUsersFollowing = function(sourceClient) {
-    let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ?`;
-    return sourceClient.execute(query, [store.tenantPrincipals]);
-};
-
-const insertFollowingUsersFollowing = async function(targetClient, result) {
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } FollowingUsersFollowers rows...`
+    );
     if (_.isEmpty(result.rows)) {
-        logger.info(
-            `${chalk.green(`✓`)}  No FollowingUsersFollowing rows found...`
-        );
         return;
     }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(
+            `✓`
+        )}  Inserted ${counter} FollowingUsersFollowers rows...\n`
+    );
+};
 
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push({
-            query: `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`,
-            params: [row.userId, row.followingId, row.value]
-        });
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting FollowingUsersFollowing...`);
-    await targetClient.batch(allInserts, { prepare: true });
+const copyFollowingUsersFollowing = async function(sourceClient, targetClient) {
+    let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT 999999`;
+    let insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
+    let counter = 0;
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            counter++;
+
+            await targetClient.execute(
+                insertQuery,
+                [row.userId, row.followingId, row.value],
+                clientOptions
+            );
+        }
+    }
+
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } FollowingUsersFollowing rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(targetClient, result.rows);
+    logger.info(
+        `${chalk.green(
+            `✓`
+        )}  Inserted ${counter} FollowingUsersFollowing rows...\n`
+    );
 };
 
 module.exports = {
-    selectFollowingUsersFollowers,
-    selectFollowingUsersFollowing,
-    insertFollowingUsersFollowers,
-    insertFollowingUsersFollowing
+    copyFollowingUsersFollowers,
+    copyFollowingUsersFollowing
 };

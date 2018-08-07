@@ -39,92 +39,54 @@ const createAllTables = async function(targetClient, createAllTables) {
             Promise.resolve(targetClient.execute(eachCreateStatement.query))
         );
     });
-    logger.info(`${chalk.green(`✓`)}  Creating tables...`);
+    logger.info(`${chalk.green(`✓`)}  Creating tables...\n`);
     await Promise.all(allPromises);
 };
 
 const {
-    insertAllPrincipals,
-    insertAllPrincipalsByEmail,
-    selectAllPrincipals,
-    selectPrincipalsByEmail
+    copyAllPrincipals,
+    copyPrincipalsByEmail
 } = require("./principals/dao.js");
 
-const {
-    insertAllFolders,
-    insertFoldersGroupIds,
-    selectAllFolders,
-    selectFoldersGroupIds
-} = require("./folders/dao.js");
+const { copyAllFolders, copyFoldersGroupIds } = require("./folders/dao.js");
+
+const { copyAllTenants, copyTenantConfig } = require("./tenants/dao.js");
 
 const {
-    selectAllTenants,
-    insertAllTenants,
-    selectTenantConfig,
-    insertTenantConfig
-} = require("./tenants/dao.js");
-
-const {
-    insertDiscussions,
-    insertMessageBoxMessages,
-    insertMessageBoxMessagesDeleted,
-    insertMessageBoxRecentContributions,
-    insertMessages,
-    selectDiscussions,
-    selectMessageBoxMessages,
-    selectMessageBoxMessagesDeleted,
-    selectMessageBoxRecentContributions,
-    selectMessages
+    copyDiscussions,
+    copyMessageBoxMessages,
+    copyMessageBoxMessagesDeleted,
+    copyMessageBoxRecentContributions,
+    copyMessages
 } = require("./messages/dao.js");
 
 const {
-    selectAllContent,
-    selectRevisionByContent,
-    selectRevisions,
-    insertContent,
-    insertRevisionByContent,
-    insertRevisions
+    copyAllContent,
+    copyRevisionByContent,
+    copyRevisions
 } = require("./content/dao");
 
-const {
-    selectAuthzMembers,
-    insertAllAuthzMembers,
-    selectAuthzRoles,
-    insertAuthzRoles
-} = require("./roles/dao");
+const { copyAuthzMembers, copyAuthzRoles } = require("./roles/dao");
+
+const { copyUsersGroupVisits } = require("./groups/dao");
 
 const {
-    selectUsersGroupVisits,
-    insertUsersGroupVisits
-} = require("./groups/dao");
-
-const {
-    selectFollowingUsersFollowers,
-    selectFollowingUsersFollowing,
-    insertFollowingUsersFollowers,
-    insertFollowingUsersFollowing
+    copyFollowingUsersFollowers,
+    copyFollowingUsersFollowing
 } = require("./following/dao");
 
 const {
-    selectAuthenticationLoginId,
-    selectAuthenticationUserLoginId,
-    selectOAuthClients,
-    insertAuthenticationUserId,
-    insertAuthenticationUserLoginId,
-    insertOAuthClients,
-    selectOAuthClientsByUser,
-    insertOAuthClientsByUser
+    copyAuthenticationLoginId,
+    copyAuthenticationUserLoginId,
+    copyOAuthClients,
+    copyOAuthClientsByUser
 } = require("./authentication/dao");
 
 const {
-    selectAuthzInvitations,
-    selectAuthzInvitationsEmailByToken,
-    selectAuthzInvitationsResourceIdByEmail,
-    selectAuthzInvitationsTokenByEmail,
-    insertAuthzInvitations,
-    insertAuthzInvitationsEmailByToken,
-    insertAuthzInvitationsResourceIdByEmail,
-    insertAuthzInvitationsTokenByEmail
+    copyAuthzInvitations,
+    copyAuthzInvitationsEmailByToken,
+    copyAuthzInvitationsResourceIdByEmail,
+    copyAuthzInvitationsTokenByEmail
 } = require("./invitations/dao");
 
 const init = async function() {
@@ -133,113 +95,37 @@ const init = async function() {
 
     try {
         await createAllTables(targetClient, createSchemaQueries);
-        await insertAllTenants(
-            targetClient,
-            await selectAllTenants(sourceClient)
-        );
-        await insertTenantConfig(
-            targetClient,
-            await selectTenantConfig(sourceClient)
-        );
-        await insertAllPrincipals(
-            targetClient,
-            await selectAllPrincipals(sourceClient)
-        );
-        await insertAllPrincipalsByEmail(
-            targetClient,
-            await selectPrincipalsByEmail(sourceClient)
-        );
-        await insertAllAuthzMembers(
-            targetClient,
-            await selectAuthzMembers(sourceClient)
-        );
-        await insertAllFolders(
-            targetClient,
-            await selectAllFolders(sourceClient)
-        );
+        await copyAllTenants(sourceClient, targetClient);
+        await copyTenantConfig(sourceClient, targetClient);
+        await copyAllPrincipals(sourceClient, targetClient);
+        await copyPrincipalsByEmail(sourceClient, targetClient);
+        await copyAuthzMembers(sourceClient, targetClient);
+        await copyAuthzRoles(sourceClient, targetClient);
+        await copyAllFolders(sourceClient, targetClient);
+        await copyFoldersGroupIds(sourceClient, targetClient);
+        await copyAllContent(sourceClient, targetClient);
+        await copyRevisionByContent(sourceClient, targetClient);
+        await copyRevisions(sourceClient, targetClient);
+        await copyDiscussions(sourceClient, targetClient);
+        await copyMessageBoxMessages(sourceClient, targetClient);
+        await copyMessages(sourceClient, targetClient);
+        await copyMessageBoxMessagesDeleted(sourceClient, targetClient);
+        await copyMessageBoxRecentContributions(sourceClient, targetClient);
+        await copyUsersGroupVisits(sourceClient, targetClient);
+        await copyFollowingUsersFollowers(sourceClient, targetClient);
+        await copyFollowingUsersFollowing(sourceClient, targetClient);
+        await copyAuthenticationUserLoginId(sourceClient, targetClient);
+        await copyAuthenticationLoginId(sourceClient, targetClient);
+        await copyOAuthClientsByUser(sourceClient, targetClient);
+        await copyOAuthClients(sourceClient, targetClient);
+        await copyAuthzInvitations(sourceClient, targetClient);
+        await copyAuthzInvitationsResourceIdByEmail(sourceClient, targetClient);
+        await copyAuthzInvitationsTokenByEmail(sourceClient, targetClient);
+        await copyAuthzInvitationsEmailByToken(sourceClient, targetClient);
 
-        await insertFoldersGroupIds(
-            targetClient,
-            await selectFoldersGroupIds(sourceClient)
-        );
-
-        await insertAuthzRoles(
-            targetClient,
-            await selectAuthzRoles(sourceClient)
-        );
-        await insertContent(targetClient, await selectAllContent(sourceClient));
-        await insertRevisionByContent(
-            targetClient,
-            await selectRevisionByContent(sourceClient)
-        );
-        await insertRevisions(
-            targetClient,
-            await selectRevisions(sourceClient)
-        );
-        await insertDiscussions(
-            targetClient,
-            await selectDiscussions(sourceClient)
-        );
-        await insertMessageBoxMessages(
-            targetClient,
-            await selectMessageBoxMessages(sourceClient)
-        );
-        await insertMessages(targetClient, await selectMessages(sourceClient));
-        await insertMessageBoxMessagesDeleted(
-            targetClient,
-            await selectMessageBoxMessagesDeleted(sourceClient)
-        );
-        await insertMessageBoxRecentContributions(
-            targetClient,
-            await selectMessageBoxRecentContributions(sourceClient)
-        );
-        await insertUsersGroupVisits(
-            targetClient,
-            await selectUsersGroupVisits(sourceClient)
-        );
-        await insertFollowingUsersFollowers(
-            targetClient,
-            await selectFollowingUsersFollowers(sourceClient)
-        );
-        await insertFollowingUsersFollowing(
-            targetClient,
-            await selectFollowingUsersFollowing(sourceClient)
-        );
-        await insertAuthenticationUserLoginId(
-            targetClient,
-            await selectAuthenticationUserLoginId(sourceClient)
-        );
-        await insertAuthenticationUserId(
-            targetClient,
-            await selectAuthenticationLoginId(sourceClient)
-        );
-        await insertOAuthClientsByUser(
-            targetClient,
-            await selectOAuthClientsByUser(sourceClient)
-        );
-        await insertOAuthClients(
-            targetClient,
-            await selectOAuthClients(sourceClient)
-        );
-        await insertAuthzInvitations(
-            targetClient,
-            await selectAuthzInvitations(sourceClient)
-        );
-        await insertAuthzInvitationsResourceIdByEmail(
-            targetClient,
-            await selectAuthzInvitationsResourceIdByEmail(sourceClient)
-        );
-        await insertAuthzInvitationsTokenByEmail(
-            targetClient,
-            await selectAuthzInvitationsTokenByEmail(sourceClient)
-        );
-        await insertAuthzInvitationsEmailByToken(
-            targetClient,
-            await selectAuthzInvitationsEmailByToken(sourceClient)
-        );
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
     } catch (error) {
-        logger.error(`${chalk.red(`✗`)}  Something went wrong: ` + error);
+        logger.error(`${chalk.red(`✗`)}  Something went wrong: `);
         logger.error(error.stack);
         process.exit(-1);
     } finally {
