@@ -108,9 +108,11 @@ const copyFoldersGroupIds = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [
-        store.folderGroupIdsFromThisTenancyAlone
-    ]);
+    let result = await sourceClient.execute(
+        query,
+        [store.folderGroupIdsFromThisTenancyAlone],
+        clientOptions
+    );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {

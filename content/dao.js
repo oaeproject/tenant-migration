@@ -28,7 +28,11 @@ const copyAllContent = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [store.allResourceIds]);
+    let result = await sourceClient.execute(
+        query,
+        [store.allResourceIds],
+        clientOptions
+    );
     store.allContentIds = _.pluck(result.rows, "contentId");
 
     async function insertAll(targetClient, rows) {
@@ -86,7 +90,11 @@ const copyRevisionByContent = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "RevisionByContent" ("contentId", created, "revisionId") VALUES (?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [store.allContentIds]);
+    let result = await sourceClient.execute(
+        query,
+        [store.allContentIds],
+        clientOptions
+    );
     store.allRevisionIds = _.pluck(result.rows, "revisionId");
 
     async function insertAll(targetClient, rows) {
@@ -121,7 +129,11 @@ const copyRevisions = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "Revisions" ("revisionId", "contentId", created, "createdBy", "etherpadHtml", filename, "largeUri", "mediumUri", mime, previews, "previewsId", size, "smallUri", status, "thumbnailUri", uri, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [store.allRevisionIds]);
+    let result = await sourceClient.execute(
+        query,
+        [store.allRevisionIds],
+        clientOptions
+    );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {

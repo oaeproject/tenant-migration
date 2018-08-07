@@ -28,7 +28,11 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [store.tenantPrincipals]);
+    let result = await sourceClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${

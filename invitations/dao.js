@@ -28,7 +28,11 @@ const copyAuthzInvitations = async function(sourceClient, targetClient) {
     let insertQuery = `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [store.allResourceIds]);
+    let result = await sourceClient.execute(
+        query,
+        [store.allResourceIds],
+        clientOptions
+    );
     store.allInvitationEmails = _.pluck(result.rows, "email");
 
     async function insertAll(targetClient, rows) {

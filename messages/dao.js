@@ -255,9 +255,11 @@ const copyMessageBoxMessagesDeleted = async function(
     let insertQuery = `INSERT INTO "MessageBoxMessagesDeleted" ("messageBoxId", "createdTimestamp", value) VALUES (?, ? ,?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [
-        _.union(store.discussionsFromThisTenancyAlone, store.allContentIds)
-    ]);
+    let result = await sourceClient.execute(
+        query,
+        [_.union(store.discussionsFromThisTenancyAlone, store.allContentIds)],
+        clientOptions
+    );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
@@ -306,9 +308,11 @@ const copyMessageBoxRecentContributions = async function(
     let insertQuery = `INSERT INTO "MessageBoxRecentContributions" ("messageBoxId", "contributorId", value) VALUES (?, ?, ?)`;
     let counter = 0;
 
-    let result = await sourceClient.execute(query, [
-        _.union(store.allContentIds, store.discussionsFromThisTenancyAlone)
-    ]);
+    let result = await sourceClient.execute(
+        query,
+        [_.union(store.allContentIds, store.discussionsFromThisTenancyAlone)],
+        clientOptions
+    );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
