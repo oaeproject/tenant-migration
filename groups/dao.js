@@ -25,7 +25,9 @@ const clientOptions = {
 };
 
 const copyUsersGroupVisits = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ?`;
+    let query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`;
     let counter = 0;
 

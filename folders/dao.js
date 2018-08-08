@@ -26,7 +26,7 @@ const clientOptions = {
 };
 
 const copyAllFolders = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Folders"`;
+    let query = `SELECT * FROM "Folders" LIMIT ${clientOptions.fetchSize}`;
     let insertQuery = `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
     let counter = 0;
     let allRows = [];
@@ -105,7 +105,9 @@ const copyFoldersGroupIds = async function(sourceClient, targetClient) {
         logger.info(chalk.cyan(`✗  Skipped fetching FoldersGroupId rows...\n`));
         return [];
     }
-    let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ?`;
+    let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`;
     let counter = 0;
 

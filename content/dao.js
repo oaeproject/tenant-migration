@@ -25,7 +25,9 @@ const clientOptions = {
 };
 
 const copyAllContent = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Content" WHERE "contentId" IN ?`;
+    let query = `SELECT * FROM "Content" WHERE "contentId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "Content" ("contentId", created, "createdBy", description, "displayName", "etherpadGroupId", "etherpadPadId", filename, "largeUri", "lastModified", "latestRevisionId", link, "mediumUri", mime, previews, "resourceSubType", size, "smallUri", status, "tenantAlias", "thumbnailUri", uri, visibility, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
 
@@ -96,7 +98,9 @@ const copyAllContent = async function(sourceClient, targetClient) {
 };
 
 const copyRevisionByContent = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "RevisionByContent" WHERE "contentId" IN ?`;
+    let query = `SELECT * FROM "RevisionByContent" WHERE "contentId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "RevisionByContent" ("contentId", created, "revisionId") VALUES (?, ?, ?)`;
     let counter = 0;
 
@@ -146,7 +150,9 @@ const copyRevisionByContent = async function(sourceClient, targetClient) {
 };
 
 const copyRevisions = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Revisions" WHERE "revisionId" IN ?`;
+    let query = `SELECT * FROM "Revisions" WHERE "revisionId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "Revisions" ("revisionId", "contentId", created, "createdBy", "etherpadHtml", filename, "largeUri", "mediumUri", mime, previews, "previewsId", size, "smallUri", status, "thumbnailUri", uri, "wideUri") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
 

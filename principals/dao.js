@@ -26,7 +26,9 @@ const clientOptions = {
 };
 
 const copyAllPrincipals = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT 999999`;
+    let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
 
@@ -104,7 +106,9 @@ const copyAllPrincipals = async function(sourceClient, targetClient) {
 };
 
 const copyPrincipalsByEmail = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT 999999 ALLOW FILTERING `;
+    let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    } ALLOW FILTERING`;
     let insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
     let counter = 0;
 

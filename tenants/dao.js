@@ -20,8 +20,15 @@ let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
 const util = require("../util");
 
+const clientOptions = {
+    fetchSize: 999999,
+    prepare: true
+};
+
 const copyAllTenants = async function(sourceClient, targetClient) {
-    let query = `select * from "Tenant" where "alias" = ?`;
+    let query = `select * from "Tenant" where "alias" = ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let result = await sourceClient.execute(query, [
         sourceDatabase.tenantAlias
     ]);
@@ -66,7 +73,7 @@ const copyAllTenants = async function(sourceClient, targetClient) {
 const copyTenantConfig = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
         sourceDatabase.tenantAlias
-    }'`;
+    }' LIMIT ${clientOptions.fetchSize}`;
     let insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
     let counter = 0;
 

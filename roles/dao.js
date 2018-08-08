@@ -25,7 +25,9 @@ const clientOptions = {
 };
 
 const copyAuthzRoles = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT 999999`;
+    let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`;
     let counter = 0;
 
@@ -71,7 +73,9 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
 };
 
 const copyAuthzMembers = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? ALLOW FILTERING`;
+    let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    } ALLOW FILTERING`;
     let insertQuery = `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`;
     let counter = 0;
 

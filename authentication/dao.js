@@ -28,7 +28,9 @@ const copyAuthenticationUserLoginId = async function(
     sourceClient,
     targetClient
 ) {
-    let query = `SELECT * FROM "AuthenticationUserLoginId" WHERE "userId" IN ?`;
+    let query = `SELECT * FROM "AuthenticationUserLoginId" WHERE "userId" IN ? limit ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthenticationUserLoginId" ("userId", "loginId", "value") VALUES (?, ?, ?)`;
     let counter = 0;
 
@@ -86,7 +88,9 @@ const copyAuthenticationLoginId = async function(sourceClient, targetClient) {
         );
         return [];
     }
-    let query = `SELECT * FROM "AuthenticationLoginId" WHERE "loginId" IN ?`;
+    let query = `SELECT * FROM "AuthenticationLoginId" WHERE "loginId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthenticationLoginId" ("loginId", password, secret, "userId") VALUES (?, ?, ?, ?)`;
     let counter = 0;
 
@@ -141,7 +145,9 @@ const copyOAuthClients = async function(sourceClient, targetClient) {
         return [];
     }
 
-    let query = `SELECT * FROM "OAuthClient" WHERE id IN ?`;
+    let query = `SELECT * FROM "OAuthClient" WHERE id IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "OAuthClient" (id, "displayName", secret, "userId") VALUES (?, ?, ?, ?)`;
     let counter = 0;
 
@@ -186,7 +192,9 @@ const copyOAuthClients = async function(sourceClient, targetClient) {
 };
 
 const copyOAuthClientsByUser = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "OAuthClientsByUser" WHERE "userId" IN ?`;
+    let query = `SELECT * FROM "OAuthClientsByUser" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "OAuthClientsByUser" ("userId", "clientId", value) VALUES (?, ?, ?)`;
     let counter = 0;
 

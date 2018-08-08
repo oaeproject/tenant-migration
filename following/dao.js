@@ -25,7 +25,9 @@ const clientOptions = {
 };
 
 const copyFollowingUsersFollowers = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT 999999`;
+    let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
     let counter = 0;
 
@@ -76,7 +78,9 @@ const copyFollowingUsersFollowers = async function(sourceClient, targetClient) {
 };
 
 const copyFollowingUsersFollowing = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT 999999`;
+    let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
     let counter = 0;
 

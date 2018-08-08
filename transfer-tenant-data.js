@@ -16,6 +16,7 @@
 const _ = require("underscore");
 const chalk = require("chalk");
 const fs = require("fs");
+const { ConnectionPool } = require("ssh-pool");
 
 const logger = require("./logger");
 const { initConnection } = require("./db");
@@ -23,13 +24,13 @@ let createSchemaQueries = require("./schema.js");
 let store = require("./store");
 
 // read json file with source database and keyspace
-let fileContents = fs.readFileSync("source-database.json");
-const { sourceDatabase } = JSON.parse(fileContents);
+let fileContents = fs.readFileSync("source.json");
+const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
 store.sourceDatabase = sourceDatabase;
 
 // read json file with target database and keyspace
-fileContents = fs.readFileSync("target-database.json");
-const { targetDatabase } = JSON.parse(fileContents);
+fileContents = fs.readFileSync("target.json");
+const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
 store.targetDatabase = targetDatabase;
 
 const createAllTables = async function(targetClient, createAllTables) {
@@ -94,6 +95,18 @@ const init = async function() {
     let targetClient = await initConnection(targetDatabase);
 
     try {
+        // rsync the files
+        const pool = new ConnectionPool([
+            `${sourceFileHost.user}@${sourceFileHost.host}`,
+            `${targetFileHost.user}@${targetFileHost.host}`
+        ]);
+
+        async function run() {
+            const results = await pool.run("hostname");
+            console.log(results[0].stdout); // 'server1'
+            console.log(results[1].stdout); // 'server2'
+        }
+        run();
         await createAllTables(targetClient, createSchemaQueries);
         await copyAllTenants(sourceClient, targetClient);
         await copyTenantConfig(sourceClient, targetClient);

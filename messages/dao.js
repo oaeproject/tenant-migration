@@ -26,7 +26,7 @@ const clientOptions = {
 };
 
 const copyDiscussions = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Discussions"`;
+    let query = `SELECT * FROM "Discussions" LIMIT ${clientOptions.fetchSize}`;
     let insertQuery = `INSERT INTO "Discussions" (id, created, "createdBy", description, "displayName", "lastModified", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
     let counter = 0;
     let allRows = [];
@@ -104,7 +104,9 @@ const copyDiscussions = async function(sourceClient, targetClient) {
 };
 
 const copyMessageBoxMessages = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "MessageBoxMessages" WHERE "messageBoxId" IN ?`;
+    let query = `SELECT * FROM "MessageBoxMessages" WHERE "messageBoxId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "MessageBoxMessages" ("messageBoxId", "threadKey", value) VALUES (?, ?, ?)`;
     let counter = 0;
     let allRows = [];
@@ -178,7 +180,7 @@ const copyMessageBoxMessages = async function(sourceClient, targetClient) {
 };
 
 const copyMessages = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Messages"`;
+    let query = `SELECT * FROM "Messages" LIMIT ${clientOptions.fetchSize}`;
     let insertQuery = `INSERT INTO "Messages" (id, body, "createdBy", deleted, "threadKey") VALUES (?, ?, ?, ?, ?)`;
     let counter = 0;
     let allRows = [];
@@ -256,7 +258,9 @@ const copyMessageBoxMessagesDeleted = async function(
         return [];
     }
     // MessageBoxMessagesDeleted
-    let query = `SELECT * FROM "MessageBoxMessagesDeleted" WHERE "messageBoxId" IN ?`;
+    let query = `SELECT * FROM "MessageBoxMessagesDeleted" WHERE "messageBoxId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "MessageBoxMessagesDeleted" ("messageBoxId", "createdTimestamp", value) VALUES (?, ? ,?)`;
     let counter = 0;
 
@@ -320,7 +324,9 @@ const copyMessageBoxRecentContributions = async function(
         return [];
     }
     // MessageBoxRecentContributions
-    let query = `SELECT * FROM "MessageBoxRecentContributions" WHERE "messageBoxId" IN ?`;
+    let query = `SELECT * FROM "MessageBoxRecentContributions" WHERE "messageBoxId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "MessageBoxRecentContributions" ("messageBoxId", "contributorId", value) VALUES (?, ?, ?)`;
     let counter = 0;
 

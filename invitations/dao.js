@@ -25,7 +25,9 @@ const clientOptions = {
 };
 
 const copyAuthzInvitations = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ?`;
+    let query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`;
     let counter = 0;
 
@@ -87,7 +89,9 @@ const copyAuthzInvitationsResourceIdByEmail = async function(
         return [];
     }
 
-    let query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ?`;
+    let query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthzInvitationsResourceIdByEmail" (email, "resourceId") VALUES (?, ?)`;
     let counter = 0;
 
@@ -149,7 +153,9 @@ const copyAuthzInvitationsTokenByEmail = async function(
         );
         return [];
     }
-    let query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ?`;
+    let query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`;
     let counter = 0;
 
@@ -213,7 +219,9 @@ const copyAuthzInvitationsEmailByToken = async function(
         return [];
     }
 
-    let query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ?`;
+    let query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     let insertQuery = `INSERT INTO "AuthzInvitationsEmailByToken" ("token", email) VALUES (?, ?)`;
     let counter = 0;
 

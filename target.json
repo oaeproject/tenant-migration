@@ -1,10 +1,14 @@
 {
-    "sourceDatabase": {
-        "keyspace": "oae",
+    "targetDatabase": {
+        "keyspace": "oaeTransfer",
         "host": "localhost",
         "timeout": 3000,
         "tenantAlias": "up",
         "strategyClass": "SimpleStrategy",
         "replication": 1
+    },
+    "targetFileHost": {
+        "host": "localhost",
+        "user": "miguel"
     }
 }
