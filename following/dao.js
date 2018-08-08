@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -27,6 +28,7 @@ const copyFollowingUsersFollowers = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT 999999`;
     let insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
     let counter = 0;
+
     let result = await sourceClient.execute(
         query,
         [store.tenantPrincipals],
@@ -58,7 +60,18 @@ const copyFollowingUsersFollowers = async function(sourceClient, targetClient) {
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} FollowingUsersFollowers rows...\n`
+        )}  Inserted ${counter} FollowingUsersFollowers rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -66,6 +79,7 @@ const copyFollowingUsersFollowing = async function(sourceClient, targetClient) {
     let query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT 999999`;
     let insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
     let counter = 0;
+
     let result = await sourceClient.execute(
         query,
         [store.tenantPrincipals],
@@ -97,7 +111,18 @@ const copyFollowingUsersFollowing = async function(sourceClient, targetClient) {
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} FollowingUsersFollowing rows...\n`
+        )}  Inserted ${counter} FollowingUsersFollowing rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -58,7 +59,18 @@ const copyAuthzInvitations = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzInvitations rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzInvitations rows..`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allResourceIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -68,9 +80,9 @@ const copyAuthzInvitationsResourceIdByEmail = async function(
 ) {
     if (_.isEmpty(store.allInvitationEmails)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`
+            chalk.cyan(
+                `✗  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`
+            )
         );
         return [];
     }
@@ -110,7 +122,18 @@ const copyAuthzInvitationsResourceIdByEmail = async function(
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} AuthzInvitationsResourceIdByEmail rows...\n`
+        )}  Inserted ${counter} AuthzInvitationsResourceIdByEmail rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allInvitationEmails],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -120,9 +143,9 @@ const copyAuthzInvitationsTokenByEmail = async function(
 ) {
     if (_.isEmpty(store.allInvitationEmails)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`
+            chalk.cyan(
+                `✗  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`
+            )
         );
         return [];
     }
@@ -130,7 +153,7 @@ const copyAuthzInvitationsTokenByEmail = async function(
     let insertQuery = `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`;
     let counter = 0;
 
-    result = await sourceClient.execute(
+    result = await targetClient.execute(
         query,
         [store.allInvitationEmails],
         clientOptions
@@ -162,7 +185,18 @@ const copyAuthzInvitationsTokenByEmail = async function(
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} AuthzInvitationsTokenIdByEmail rows...\n`
+        )}  Inserted ${counter} AuthzInvitationsTokenIdByEmail rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allInvitationEmails],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -172,9 +206,9 @@ const copyAuthzInvitationsEmailByToken = async function(
 ) {
     if (_.isEmpty(store.allInvitationTokens)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching AuthzInvitationsEmailByToken rows...\n`
+            chalk.cyan(
+                `✗  Skipped fetching AuthzInvitationsEmailByToken rows...\n`
+            )
         );
         return [];
     }
@@ -214,7 +248,18 @@ const copyAuthzInvitationsEmailByToken = async function(
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} AuthzInvitationsEmailByToken rows...\n`
+        )}  Inserted ${counter} AuthzInvitationsEmailByToken rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allInvitationTokens],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

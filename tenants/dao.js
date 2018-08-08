@@ -18,6 +18,7 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
+const util = require("../util");
 
 const copyAllTenants = async function(sourceClient, targetClient) {
     let query = `select * from "Tenant" where "alias" = ?`;
@@ -44,12 +45,22 @@ const copyAllTenants = async function(sourceClient, targetClient) {
         }
     }
 
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
+    );
     if (_.isEmpty(result.rows)) {
-        logger.info(`${chalk.green(`✓`)}  No Tenant rows found...`);
         return;
     }
+
     await insertAll(targetClient, result.rows);
-    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Tenant rows...\n`);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Tenant rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(query, [sourceDatabase.tenantAlias]);
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
+    );
 };
 
 const copyTenantConfig = async function(sourceClient, targetClient) {
@@ -60,6 +71,7 @@ const copyTenantConfig = async function(sourceClient, targetClient) {
     let counter = 0;
 
     let result = await sourceClient.execute(query);
+
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             let row = rows[i];
@@ -79,8 +91,16 @@ const copyTenantConfig = async function(sourceClient, targetClient) {
     if (_.isEmpty(result.rows)) {
         return;
     }
+
     await insertAll(targetClient, result.rows);
-    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Config rows...\n`);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Config rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(query);
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
+    );
 };
 
 module.exports = {

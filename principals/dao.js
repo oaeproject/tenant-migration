@@ -18,6 +18,7 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -88,8 +89,17 @@ const copyAllPrincipals = async function(sourceClient, targetClient) {
         return;
     }
     await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} Principals rows...\n`
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Principals rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [sourceDatabase.tenantAlias],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -127,7 +137,18 @@ const copyPrincipalsByEmail = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} PrincipalsByEmail rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} PrincipalsByEmail rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

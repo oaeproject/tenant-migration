@@ -18,6 +18,7 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -49,8 +50,10 @@ const copyDiscussions = async function(sourceClient, targetClient) {
                 logger.info(
                     `${chalk.green(
                         `✓`
-                    )}  Inserted ${counter} Discussions rows...\n`
+                    )}  Inserted ${counter} Discussions rows...`
                 );
+
+                util.compareBothTenants(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -108,7 +111,7 @@ const copyMessageBoxMessages = async function(sourceClient, targetClient) {
 
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
         logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching MessageBoxMessages rows...\n`
+            chalk.cyan(`✗  Skipped fetching MessageBoxMessages rows...\n`)
         );
         return [];
     }
@@ -132,8 +135,10 @@ const copyMessageBoxMessages = async function(sourceClient, targetClient) {
                 logger.info(
                     `${chalk.green(
                         `✓`
-                    )}  Inserted ${counter} MessageBoxMessages rows...\n`
+                    )}  Inserted ${counter} MessageBoxMessages rows...`
                 );
+
+                util.compareBothTenants(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -179,7 +184,7 @@ const copyMessages = async function(sourceClient, targetClient) {
     let allRows = [];
 
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
-        logger.info(`${chalk.green(`✗`)}  Skipped fetching Messages rows...\n`);
+        logger.info(chalk.cyan(`✗  Skipped fetching Messages rows...\n`));
         return [];
     }
     // lets query discussions and all messages
@@ -198,10 +203,10 @@ const copyMessages = async function(sourceClient, targetClient) {
                 }
                 await insertAll(targetClient, allRows);
                 logger.info(
-                    `${chalk.green(
-                        `✓`
-                    )}  Inserted ${counter} Messages rows...\n`
+                    `${chalk.green(`✓`)}  Inserted ${counter} Messages rows...`
                 );
+
+                util.compareBothTenants(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -244,9 +249,9 @@ const copyMessageBoxMessagesDeleted = async function(
 ) {
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching MessageBoxMessagesDeleted rows...\n`
+            chalk.cyan(
+                `✗  Skipped fetching MessageBoxMessagesDeleted rows...\n`
+            )
         );
         return [];
     }
@@ -289,6 +294,17 @@ const copyMessageBoxMessagesDeleted = async function(
             `✓`
         )}  Inserted ${counter} MessageBoxMessagesDeleted rows...`
     );
+
+    let queryResultOnSource = result;
+    result = await target.execute(
+        query,
+        [_.union(store.discussionsFromThisTenancyAlone, store.allContentIds)],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
+    );
 };
 
 const copyMessageBoxRecentContributions = async function(
@@ -297,9 +313,9 @@ const copyMessageBoxRecentContributions = async function(
 ) {
     if (_.isEmpty(store.discussionsFromThisTenancyAlone)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching MessageBoxRecentContributions rows...\n`
+            chalk.cyan(
+                `✗  Skipped fetching MessageBoxRecentContributions rows...\n`
+            )
         );
         return [];
     }
@@ -340,7 +356,18 @@ const copyMessageBoxRecentContributions = async function(
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} MessageBoxRecentContributions rows...\n`
+        )}  Inserted ${counter} MessageBoxRecentContributions rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [_.union(store.allContentIds, store.discussionsFromThisTenancyAlone)],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

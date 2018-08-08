@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -57,7 +58,18 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} UsersGroupVisits rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} UsersGroupVisits rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

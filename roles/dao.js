@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -55,8 +56,17 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
         return;
     }
     await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...\n`
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -94,50 +104,19 @@ const copyAuthzMembers = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzMembers rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} AuthzMembers rows...`
     );
-};
 
-const insertAllAuthzMembers = async function(targetClient, result) {
-    // insert authzmembers
-    if (_.isEmpty(result.rows)) {
-        logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching AuthzMembers rows...\n`
-        );
-        return;
-    }
-
-    let allInserts = [];
-    result.rows.forEach(row => {
-        allInserts.push(
-            new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    Promise.resolve(
-                        targetClient.execute(
-                            `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`,
-                            [row.resourceId, row.memberId, row.role]
-                        )
-                    )
-                        .then(resolve())
-                        .catch(e => {
-                            reject(e);
-                        });
-                }, 1000);
-            })
-        );
-    });
-    logger.info(`${chalk.green(`✓`)}  Inserting AuthzMembers...\n`);
-    // await targetClient.batch(allInserts, { prepare: true });
-    // const firstTask = allInserts.shift();
-
-    async function runAll(allInserts) {
-        for (const insertQuery of allInserts) {
-            await insertQuery;
-        }
-    }
-    console.log("Total inserts to AuthzMembers is: " + allInserts.length);
-    await runAll(allInserts);
-    // await Promise.all(allInserts);
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
+    );
 };
 
 module.exports = {

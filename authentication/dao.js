@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -63,16 +64,25 @@ const copyAuthenticationUserLoginId = async function(
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} AuthenticationUserLoginId rows...\n`
+        )}  Inserted ${counter} AuthenticationUserLoginId rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantPrincipals],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
 const copyAuthenticationLoginId = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.allLoginIds)) {
         logger.info(
-            `${chalk.green(
-                `✗`
-            )}  Skipped fetching AuthentiationLoginId rows...\n`
+            chalk.cyan(`✗  Skipped fetching AuthentiationLoginId rows...\n`)
         );
         return [];
     }
@@ -110,15 +120,24 @@ const copyAuthenticationLoginId = async function(sourceClient, targetClient) {
     logger.info(
         `${chalk.green(
             `✓`
-        )}  Inserted ${counter} AuthenticationUserLoginId rows...\n`
+        )}  Inserted ${counter} AuthenticationUserLoginId rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allLoginIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
 const copyOAuthClients = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.allOauthClientsIds)) {
-        logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching OAuthClient rows...\n`
-        );
+        logger.info(chalk.cyan(`✗  Skipped fetching OAuthClient rows...\n`));
         return [];
     }
 
@@ -152,8 +171,17 @@ const copyOAuthClients = async function(sourceClient, targetClient) {
         return;
     }
     await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} OAuthClient rows...\n`
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} OAuthClient rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allOauthClientsIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -192,7 +220,18 @@ const copyOAuthClientsByUser = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} OAuthClientsByUser rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} OAuthClientsByUser rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.tenantUsers],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 

@@ -17,6 +17,7 @@ const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -80,8 +81,17 @@ const copyAllContent = async function(sourceClient, targetClient) {
         return;
     }
     await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...\n`
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Content rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allResourceIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -120,7 +130,18 @@ const copyRevisionByContent = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} RevisionByContent rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} RevisionByContent rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allContentIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
@@ -173,7 +194,18 @@ const copyRevisions = async function(sourceClient, targetClient) {
         return;
     }
     await insertAll(targetClient, result.rows);
-    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Revisions rows...\n`);
+    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Revisions rows...`);
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.allRevisionIds],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
+    );
 };
 
 module.exports = {

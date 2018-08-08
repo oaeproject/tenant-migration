@@ -18,6 +18,7 @@ const _ = require("underscore");
 const logger = require("../logger");
 let store = require("../store");
 let sourceDatabase = store.sourceDatabase;
+const util = require("../util");
 
 const clientOptions = {
     fetchSize: 999999,
@@ -45,8 +46,10 @@ const copyAllFolders = async function(sourceClient, targetClient) {
                 }
                 await insertAll(targetClient, allRows);
                 logger.info(
-                    `${chalk.green(`✓`)}  Inserted ${counter} Folders rows...\n`
+                    `${chalk.green(`✓`)}  Inserted ${counter} Folders rows...`
                 );
+
+                util.compareBothTenants(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -99,9 +102,7 @@ const copyAllFolders = async function(sourceClient, targetClient) {
 
 const copyFoldersGroupIds = async function(sourceClient, targetClient) {
     if (_.isEmpty(store.folderGroupIdsFromThisTenancyAlone)) {
-        logger.info(
-            `${chalk.green(`✗`)}  Skipped fetching FoldersGroupId rows...\n`
-        );
+        logger.info(chalk.cyan(`✗  Skipped fetching FoldersGroupId rows...\n`));
         return [];
     }
     let query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ?`;
@@ -137,7 +138,18 @@ const copyFoldersGroupIds = async function(sourceClient, targetClient) {
     }
     await insertAll(targetClient, result.rows);
     logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} FoldersGroupId rows...\n`
+        `${chalk.green(`✓`)}  Inserted ${counter} FoldersGroupId rows...`
+    );
+
+    let queryResultOnSource = result;
+    result = await targetClient.execute(
+        query,
+        [store.folderGroupIdsFromThisTenancyAlone],
+        clientOptions
+    );
+    util.compareBothTenants(
+        queryResultOnSource.rows.length,
+        result.rows.length
     );
 };
 
