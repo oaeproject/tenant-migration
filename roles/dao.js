@@ -1,3 +1,4 @@
+// @format
 /*!
  * Copyright 2018 Apereo Foundation (AF) Licensed under the
  * Educational Community License, Version 2.0 (the "License"); you may
@@ -16,7 +17,7 @@
 const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
-let store = require("../store");
+const store = require("../store");
 const util = require("../util");
 
 const clientOptions = {
@@ -25,10 +26,10 @@ const clientOptions = {
 };
 
 const copyAuthzRoles = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT ${
+    const query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT ${
         clientOptions.fetchSize
     }`;
-    let insertQuery = `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`;
+    const insertQuery = `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`;
     let counter = 0;
 
     let result = await sourceClient.execute(
@@ -40,7 +41,7 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
-            let row = rows[i];
+            const row = rows[i];
             counter++;
 
             await targetClient.execute(
@@ -60,7 +61,7 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
     await insertAll(targetClient, result.rows);
     logger.info(`${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...`);
 
-    let queryResultOnSource = result;
+    const queryResultOnSource = result;
     result = await targetClient.execute(
         query,
         [store.tenantPrincipals],
@@ -73,10 +74,10 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
 };
 
 const copyAuthzMembers = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? LIMIT ${
+    const query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? LIMIT ${
         clientOptions.fetchSize
     } ALLOW FILTERING`;
-    let insertQuery = `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`;
+    const insertQuery = `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`;
     let counter = 0;
 
     let result = await sourceClient.execute(
@@ -87,7 +88,7 @@ const copyAuthzMembers = async function(sourceClient, targetClient) {
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
-            let row = rows[i];
+            const row = rows[i];
             counter++;
 
             await targetClient.execute(
@@ -111,7 +112,7 @@ const copyAuthzMembers = async function(sourceClient, targetClient) {
         `${chalk.green(`✓`)}  Inserted ${counter} AuthzMembers rows...`
     );
 
-    let queryResultOnSource = result;
+    const queryResultOnSource = result;
     result = await targetClient.execute(
         query,
         [store.tenantPrincipals],

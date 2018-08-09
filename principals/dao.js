@@ -13,53 +13,54 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-let store = require("../store");
-let sourceDatabase = store.sourceDatabase;
-const util = require("../util");
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const store = require('../store');
+
+const sourceDatabase = store.sourceDatabase;
+const util = require('../util');
 
 const clientOptions = {
-    fetchSize: 999999,
-    prepare: true
+	fetchSize: 999999,
+	prepare: true
 };
 
-const copyAllPrincipals = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    let insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    let counter = 0;
+const copyAllPrincipals = async function (sourceClient, targetClient) {
+	const query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT ${
+		clientOptions.fetchSize
+	}`;
+	const insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+	let counter = 0;
 
-    let result = await sourceClient.execute(
+	let result = await sourceClient.execute(
         query,
         [sourceDatabase.tenantAlias],
         clientOptions
     );
 
-    // we'll need to know which principals are users or groups
+    // We'll need to know which principals are users or groups
     result.rows.forEach(row => {
         store.tenantPrincipals.push(row.principalId);
-        if (row.principalId.startsWith("g")) {
+        if (row.principalId.startsWith('g')) {
             store.tenantGroups.push(row.principalId);
-        } else if (row.principalId.startsWith("u")) {
+        } else if (row.principalId.startsWith('u')) {
             store.tenantUsers.push(row.principalId);
         }
     });
 
     async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            let row = rows[i];
-            counter++;
+    	for (let i = 0; i < rows.length; i++) {
+    		const row = rows[i];
+    		counter++;
 
-            await targetClient.execute(
+    		await targetClient.execute(
                 insertQuery,
                 [
-                    row.principalId,
-                    row.acceptedTC,
-                    row.get("admin:global"),
-                    row.get("admin:tenant"),
+                	row.principalId,
+                	row.acceptedTC,
+                    row.get('admin:global'),
+                    row.get('admin:tenant'),
                     row.created,
                     row.createdBy,
                     row.deleted,
@@ -81,19 +82,19 @@ const copyAllPrincipals = async function(sourceClient, targetClient) {
                 ],
                 clientOptions
             );
-        }
+    	}
     }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
     );
     if (_.isEmpty(result.rows)) {
-        return;
+    	return;
     }
     await insertAll(targetClient, result.rows);
     logger.info(`${chalk.green(`✓`)}  Inserted ${counter} Principals rows...`);
 
-    let queryResultOnSource = result;
+    const queryResultOnSource = result;
     result = await targetClient.execute(
         query,
         [sourceDatabase.tenantAlias],
@@ -105,46 +106,46 @@ const copyAllPrincipals = async function(sourceClient, targetClient) {
     );
 };
 
-const copyPrincipalsByEmail = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    } ALLOW FILTERING`;
-    let insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
-    let counter = 0;
+const copyPrincipalsByEmail = async function (sourceClient, targetClient) {
+	const query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT ${
+		clientOptions.fetchSize
+	} ALLOW FILTERING`;
+	const insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
+	let counter = 0;
 
-    let result = await sourceClient.execute(
+	let result = await sourceClient.execute(
         query,
         [store.tenantPrincipals],
         clientOptions
     );
 
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            let row = rows[i];
-            counter++;
+	async function insertAll(targetClient, rows) {
+		for (let i = 0; i < rows.length; i++) {
+			const row = rows[i];
+			counter++;
 
-            await targetClient.execute(
+			await targetClient.execute(
                 insertQuery,
                 [row.email, row.principalId],
                 clientOptions
             );
-        }
-    }
+		}
+	}
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
+        	result.rows.length
         } PrincipalsByEmail rows...`
     );
     if (_.isEmpty(result.rows)) {
-        return;
+    	return;
     }
     await insertAll(targetClient, result.rows);
     logger.info(
         `${chalk.green(`✓`)}  Inserted ${counter} PrincipalsByEmail rows...`
     );
 
-    let queryResultOnSource = result;
+    const queryResultOnSource = result;
     result = await targetClient.execute(
         query,
         [store.tenantPrincipals],
@@ -157,6 +158,6 @@ const copyPrincipalsByEmail = async function(sourceClient, targetClient) {
 };
 
 module.exports = {
-    copyAllPrincipals,
-    copyPrincipalsByEmail
+	copyAllPrincipals,
+	copyPrincipalsByEmail
 };

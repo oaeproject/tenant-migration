@@ -1,14 +1,15 @@
 {
     "targetDatabase": {
-        "keyspace": "oaeTransfer",
-        "host": "localhost",
+        "keyspace": "oae",
+        "host": "aspiredor.local",
         "timeout": 3000,
         "tenantAlias": "up",
         "strategyClass": "SimpleStrategy",
         "replication": 1
     },
     "targetFileHost": {
-        "host": "localhost",
-        "user": "miguel"
+        "host": "aspiredor.local",
+        "user": "miguel",
+        "path": "/home/miguel/Work"
     }
 }

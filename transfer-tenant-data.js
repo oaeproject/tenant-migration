@@ -1,3 +1,4 @@
+#! /bin/node
 /*!
  * Copyright 2018 Apereo Foundation (AF) Licensed under the
  * Educational Community License, Version 2.0 (the "License"); you may
@@ -13,28 +14,31 @@
  * permissions and limitations under the License.
  */
 
+// @format
+const fs = require("fs");
+const path = require("path");
 const _ = require("underscore");
 const chalk = require("chalk");
-const fs = require("fs");
 const { ConnectionPool } = require("ssh-pool");
+const mkdirp = require("mkdirp2");
 
 const logger = require("./logger");
 const { initConnection } = require("./db");
-let createSchemaQueries = require("./schema.js");
-let store = require("./store");
+const createSchemaQueries = require("./schema.js");
+const store = require("./store");
 
-// read json file with source database and keyspace
+// Read json file with source database and keyspace
 let fileContents = fs.readFileSync("source.json");
 const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
 store.sourceDatabase = sourceDatabase;
 
-// read json file with target database and keyspace
+// Read json file with target database and keyspace
 fileContents = fs.readFileSync("target.json");
 const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
 store.targetDatabase = targetDatabase;
 
 const createAllTables = async function(targetClient, createAllTables) {
-    allPromises = [];
+    const allPromises = [];
     createAllTables.forEach(eachCreateStatement => {
         allPromises.push(
             Promise.resolve(targetClient.execute(eachCreateStatement.query))
@@ -90,23 +94,99 @@ const {
     copyAuthzInvitationsTokenByEmail
 } = require("./invitations/dao");
 
+async function runTransfer(sourceFileHost, targetFileHost, foldersToSync) {
+    // Create the ssh connections to both origin/target servers
+    const sourceHost = new ConnectionPool([
+        `${sourceFileHost.user}@${sourceFileHost.host}`
+    ]);
+    const targetHost = new ConnectionPool([
+        `${targetFileHost.user}@${targetFileHost.host}`
+    ]);
+
+    let sourceDirectory = sourceFileHost.path;
+    const targetPath = targetFileHost.path;
+    const localPath = process.cwd();
+
+    /* eslint-disable no-await-in-loop */
+    for (let i = 0; i < foldersToSync.length; i++) {
+        const eachFolder = foldersToSync[i];
+
+        // the origin folder that we're syncing to other servers
+        sourceDirectory = path.join(sourceFileHost.path, eachFolder);
+
+        // Make sure the directories exist locally otherwise rsync fails
+        const localDirectory = path.join(localPath, eachFolder);
+        await mkdirp.promise(localDirectory);
+
+        // Make sure the directories exist remotely otherwise rsync fails
+        const remoteDirectory = path.join(targetPath, eachFolder);
+        await targetHost.run(`mkdir -p ${remoteDirectory}`);
+
+        // const runEachTransfer = async function(directories, hosts) {};
+
+        const directories = [sourceDirectory, localDirectory, remoteDirectory];
+        const hosts = [sourceFileHost.host, "localhost", targetFileHost.host];
+        // await runEachTransfer(directories, hosts);
+
+        logger.info(
+            chalk.cyan(
+                `﹅  Rsync operation under way, this may take a while...`
+            )
+        );
+        logger.info(
+            chalk.cyan(`﹅  Source directory:`) + ` ${sourceDirectory}`
+        );
+        logger.info(chalk.cyan(`﹅  Local directory:`) + ` ${localDirectory}`);
+        logger.info(
+            chalk.cyan(`﹅  Target directory:`) + ` ${remoteDirectory}`
+        );
+
+        logger.info(
+            `${chalk.green(`✓`)}  Syncing ${chalk.cyan(sourceDirectory)} on ${
+                sourceFileHost.host
+            } with ${chalk.cyan(localDirectory)} on localhost`
+        );
+        await sourceHost.copyFromRemote(sourceDirectory, localDirectory, {
+            verbosityLevel: 3
+        });
+        logger.info(`${chalk.green(`✓`)}  Complete!\n`);
+
+        logger.info(
+            `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
+                localDirectory
+            )} on localhost with ${chalk.cyan(remoteDirectory)} on ${
+                targetFileHost.host
+            }`
+        );
+        await targetHost.copyToRemote(localDirectory, remoteDirectory, {
+            verbosityLevel: 3
+        });
+        logger.info(`${chalk.green(`✓`)}  Complete!\n`);
+    }
+}
+
 const init = async function() {
-    let sourceClient = await initConnection(sourceDatabase);
-    let targetClient = await initConnection(targetDatabase);
-
     try {
-        // rsync the files
-        const pool = new ConnectionPool([
-            `${sourceFileHost.user}@${sourceFileHost.host}`,
-            `${targetFileHost.user}@${targetFileHost.host}`
-        ]);
+        const sourceClient = await initConnection(sourceDatabase);
+        const targetClient = await initConnection(targetDatabase);
 
-        async function run() {
-            const results = await pool.run("hostname");
-            console.log(results[0].stdout); // 'server1'
-            console.log(results[1].stdout); // 'server2'
-        }
-        run();
+        // Rsync the files
+        let contentTypes = ["c", "f", "u", "g", "d"];
+        // TODO change here: remove next line, which removes the document type
+        contentTypes = ["c", "f", "u", "g"];
+        const foldersToSync = _.map(contentTypes, eachContentType => {
+            return path.join(
+                "files",
+                eachContentType,
+                sourceDatabase.tenantAlias
+            );
+        });
+
+        await runTransfer(sourceFileHost, targetFileHost, foldersToSync);
+
+        // process.exit(0);
+
+        // Start with the database data transfer
         await createAllTables(targetClient, createSchemaQueries);
         await copyAllTenants(sourceClient, targetClient);
         await copyTenantConfig(sourceClient, targetClient);

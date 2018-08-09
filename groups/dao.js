@@ -1,3 +1,4 @@
+// @format
 /*!
  * Copyright 2018 Apereo Foundation (AF) Licensed under the
  * Educational Community License, Version 2.0 (the "License"); you may
@@ -16,7 +17,7 @@
 const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
-let store = require("../store");
+const store = require("../store");
 const util = require("../util");
 
 const clientOptions = {
@@ -25,10 +26,10 @@ const clientOptions = {
 };
 
 const copyUsersGroupVisits = async function(sourceClient, targetClient) {
-    let query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ? LIMIT ${
+    const query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ? LIMIT ${
         clientOptions.fetchSize
     }`;
-    let insertQuery = `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`;
+    const insertQuery = `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`;
     let counter = 0;
 
     let result = await sourceClient.execute(
@@ -42,13 +43,14 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
             result.rows.length
         } UsersGroupVisits rows...`
     );
+
     if (_.isEmpty(result.rows)) {
         return;
     }
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
-            let row = rows[i];
+            const row = rows[i];
             counter++;
 
             await targetClient.execute(
@@ -63,7 +65,7 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
         `${chalk.green(`✓`)}  Inserted ${counter} UsersGroupVisits rows...`
     );
 
-    let queryResultOnSource = result;
+    const queryResultOnSource = result;
     result = await targetClient.execute(
         query,
         [store.tenantPrincipals],

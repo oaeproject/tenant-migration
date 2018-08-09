@@ -9,6 +9,7 @@
     },
     "sourceFileHost": {
         "host": "localhost",
-        "user": "miguel"
+        "user": "miguel",
+        "path": "/Users/miguel/Work"
     }
 }
