@@ -19,31 +19,22 @@ const chalk = require("chalk");
 const { ConnectionPool } = require("ssh-pool");
 const mkdirp = require("mkdirp2");
 
-const store = require("./store");
 const logger = require("./logger");
 
-const runTransfer = async function(
-    sourceFileHost,
-    targetFileHost,
-    contentTypes
-) {
+const runTransfer = async function(source, target, contentTypes) {
     const foldersToSync = _.map(contentTypes, eachContentType => {
-        return path.join(
-            "files",
-            eachContentType,
-            store.sourceDatabase.tenantAlias
-        );
+        return path.join("files", eachContentType);
     });
     // Create the ssh connections to both origin/target servers
-    const sourceHost = new ConnectionPool([
-        `${sourceFileHost.user}@${sourceFileHost.host}`
+    const sourceHostConnection = new ConnectionPool([
+        `${source.fileHost.user}@${source.fileHost.host}`
     ]);
-    const targetHost = new ConnectionPool([
-        `${targetFileHost.user}@${targetFileHost.host}`
+    const targetHostConnection = new ConnectionPool([
+        `${target.fileHost.user}@${target.fileHost.host}`
     ]);
 
-    let sourceDirectory = sourceFileHost.path;
-    const targetPath = targetFileHost.path;
+    let sourceDirectory = source.fileHost.path;
+    const targetPath = target.fileHost.path;
     const localPath = process.cwd();
 
     /* eslint-disable no-await-in-loop */
@@ -51,7 +42,11 @@ const runTransfer = async function(
         const eachFolder = foldersToSync[i];
 
         // the origin folder that we're syncing to other servers
-        sourceDirectory = path.join(sourceFileHost.path, eachFolder);
+        sourceDirectory = path.join(
+            source.fileHost.path,
+            eachFolder,
+            source.database.tenantAlias
+        );
 
         // Make sure the directories exist locally otherwise rsync fails
         const localDirectory = path.join(localPath, eachFolder);
@@ -59,17 +54,33 @@ const runTransfer = async function(
 
         // Make sure the directories exist remotely otherwise rsync fails
         const remoteDirectory = path.join(targetPath, eachFolder);
-        await targetHost.run(`mkdir -p ${remoteDirectory}`);
-        const rsyncData = {
-            source: { directory: sourceDirectory, host: sourceFileHost.host },
-            local: { directory: localDirectory, host: "localhost" },
-            remote: { directory: remoteDirectory, host: targetFileHost.host }
-        };
-        await runEachTransfer(sourceHost, targetHost, rsyncData);
+        await targetHostConnection.run(`mkdir -p ${remoteDirectory}`);
+
+        await runEachTransfer(
+            sourceHostConnection,
+            targetHostConnection,
+            {
+                source: {
+                    directory: sourceDirectory,
+                    host: source.fileHost.host
+                },
+                local: { directory: localDirectory, host: "localhost" },
+                remote: {
+                    directory: remoteDirectory,
+                    host: target.fileHost.host
+                }
+            },
+            source.database.tenantAlias
+        );
     }
 };
 
-const runEachTransfer = async function(sourceHost, targetHost, rsyncData) {
+const runEachTransfer = async function(
+    sourceHost,
+    targetHost,
+    rsyncData,
+    tenantAlias
+) {
     logger.info(
         chalk.cyan(`﹅  Rsync operation under way, this may take a while...`)
     );
@@ -106,7 +117,7 @@ const runEachTransfer = async function(sourceHost, targetHost, rsyncData) {
         }`
     );
     await targetHost.copyToRemote(
-        rsyncData.local.directory,
+        path.join(rsyncData.local.directory, tenantAlias),
         rsyncData.remote.directory,
         {
             verbosityLevel: 3

@@ -2,8 +2,8 @@
     "targetDatabase": {
         "keyspace": "oae",
         "host": "aspiredor.local",
-        "timeout": 3000,
-        "tenantAlias": "up",
+        "timeout": 6000,
+        "tenantAlias": "apereo",
         "strategyClass": "SimpleStrategy",
         "replication": 1
     },

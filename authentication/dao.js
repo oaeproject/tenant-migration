@@ -13,66 +13,57 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require('chalk');
-const _ = require('underscore');
-const logger = require('../logger');
-const store = require('../store');
-const util = require('../util');
+const chalk = require("chalk");
+const _ = require("underscore");
+const logger = require("../logger");
+const { Store } = require("../store");
+const util = require("../util");
 
 const clientOptions = {
-	fetchSize: 999999,
-	prepare: true
+    fetchSize: 999999,
+    prepare: true
 };
 
-const copyAuthenticationUserLoginId = async function (
-	sourceClient,
-	targetClient
-) {
-	const query = `SELECT * FROM "AuthenticationUserLoginId" WHERE "userId" IN ? limit ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthenticationUserLoginId" ("userId", "loginId", "value") VALUES (?, ?, ?)`;
-	let counter = 0;
+const copyAuthenticationUserLoginId = async function(source, target) {
+    const query = `SELECT * FROM "AuthenticationUserLoginId" WHERE "userId" IN ? limit ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthenticationUserLoginId" ("userId", "loginId", "value") VALUES (?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
-	store.allLoginIds = _.pluck(result.rows, 'loginId');
+    let allLoginIds = _.pluck(result.rows, "loginId");
+    Store.setAttribute("allLoginIds", _.uniq(allLoginIds));
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.userId, row.loginId, row.value],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthenticationUserLoginId rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} AuthenticationUserLoginId rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(
@@ -81,56 +72,49 @@ const copyAuthenticationUserLoginId = async function (
     );
 };
 
-const copyAuthenticationLoginId = async function (sourceClient, targetClient) {
-	if (_.isEmpty(store.allLoginIds)) {
+const copyAuthenticationLoginId = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("allLoginIds"))) {
         logger.info(
             chalk.cyan(`✗  Skipped fetching AuthentiationLoginId rows...\n`)
         );
         return [];
-	}
-	const query = `SELECT * FROM "AuthenticationLoginId" WHERE "loginId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthenticationLoginId" ("loginId", password, secret, "userId") VALUES (?, ?, ?, ?)`;
-	let counter = 0;
+    }
+    const query = `SELECT * FROM "AuthenticationLoginId" WHERE "loginId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthenticationLoginId" ("loginId", password, secret, "userId") VALUES (?, ?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.allLoginIds],
+        [Store.getAttribute("allLoginIds")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.loginId, row.password, row.secret, row.userId],
                 clientOptions
             );
-		}
-	}
+        }
+    }
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthenticationLoginId rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} AuthenticationUserLoginId rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allLoginIds],
+        [Store.getAttribute("allLoginIds")],
         clientOptions
     );
     util.compareBothTenants(
@@ -139,50 +123,47 @@ const copyAuthenticationLoginId = async function (sourceClient, targetClient) {
     );
 };
 
-const copyOAuthClients = async function (sourceClient, targetClient) {
-	if (_.isEmpty(store.allOauthClientsIds)) {
+const copyOAuthClients = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("allOauthClientsIds"))) {
         logger.info(chalk.cyan(`✗  Skipped fetching OAuthClient rows...\n`));
         return [];
-	}
+    }
 
-	const query = `SELECT * FROM "OAuthClient" WHERE id IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "OAuthClient" (id, "displayName", secret, "userId") VALUES (?, ?, ?, ?)`;
-	let counter = 0;
+    const query = `SELECT * FROM "OAuthClient" WHERE id IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "OAuthClient" (id, "displayName", secret, "userId") VALUES (?, ?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.allOauthClientsIds],
+        [Store.getAttribute("allOauthClientsIds")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.id, row.displayName, row.secret, row.userId],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${result.rows.length} OAuthClient rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} OAuthClient rows...`);
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allOauthClientsIds],
+        [Store.getAttribute("allOauthClientsIds")],
         clientOptions
     );
     util.compareBothTenants(
@@ -191,50 +172,46 @@ const copyOAuthClients = async function (sourceClient, targetClient) {
     );
 };
 
-const copyOAuthClientsByUser = async function (sourceClient, targetClient) {
-	const query = `SELECT * FROM "OAuthClientsByUser" WHERE "userId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "OAuthClientsByUser" ("userId", "clientId", value) VALUES (?, ?, ?)`;
-	let counter = 0;
+const copyOAuthClientsByUser = async function(source, target) {
+    const query = `SELECT * FROM "OAuthClientsByUser" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "OAuthClientsByUser" ("userId", "clientId", value) VALUES (?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantUsers],
+        [Store.getAttribute("tenantUsers")],
         clientOptions
     );
-	store.allOauthClientsIds = _.pluck(result.rows, 'clientId');
+    let allOauthClientsIds = _.pluck(result.rows, "clientId");
+    Store.setAttribute("allOauthClientsIds", _.uniq(allOauthClientsIds));
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.userId, row.clientId, row.value],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } OAuthClientsByUser rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} OAuthClientsByUser rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantUsers],
+        [Store.getAttribute("tenantUsers")],
         clientOptions
     );
     util.compareBothTenants(
@@ -244,8 +221,8 @@ const copyOAuthClientsByUser = async function (sourceClient, targetClient) {
 };
 
 module.exports = {
-	copyAuthenticationLoginId,
-	copyAuthenticationUserLoginId,
-	copyOAuthClients,
-	copyOAuthClientsByUser
+    copyAuthenticationLoginId,
+    copyAuthenticationUserLoginId,
+    copyOAuthClients,
+    copyOAuthClientsByUser
 };

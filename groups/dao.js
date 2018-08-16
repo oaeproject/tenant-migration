@@ -17,7 +17,7 @@
 const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
-const store = require("../store");
+const { Store } = require("../store");
 const util = require("../util");
 
 const clientOptions = {
@@ -25,16 +25,15 @@ const clientOptions = {
     prepare: true
 };
 
-const copyUsersGroupVisits = async function(sourceClient, targetClient) {
+const copyUsersGroupVisits = async function(source, target) {
     const query = `SELECT * FROM "UsersGroupVisits" WHERE "userId" IN ? LIMIT ${
         clientOptions.fetchSize
     }`;
     const insertQuery = `INSERT INTO "UsersGroupVisits" ("userId", "groupId", "latestVisit") VALUES (?, ?, ?)`;
-    let counter = 0;
 
-    let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
 
@@ -51,7 +50,6 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            counter++;
 
             await targetClient.execute(
                 insertQuery,
@@ -60,15 +58,12 @@ const copyUsersGroupVisits = async function(sourceClient, targetClient) {
             );
         }
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} UsersGroupVisits rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(

@@ -17,32 +17,32 @@
 const chalk = require("chalk");
 const _ = require("underscore");
 const logger = require("../logger");
-const store = require("../store");
 const util = require("../util");
+const { Store } = require("../store");
 
 const clientOptions = {
     fetchSize: 999999,
     prepare: true
 };
 
-const copyAuthzRoles = async function(sourceClient, targetClient) {
+const copyAuthzRoles = async function(source, target) {
     const query = `SELECT * FROM "AuthzRoles" WHERE "principalId" IN ? LIMIT ${
         clientOptions.fetchSize
     }`;
     const insertQuery = `INSERT INTO "AuthzRoles" ("principalId", "resourceId", role) VALUES (?, ?, ?)`;
-    let counter = 0;
 
-    let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
-    store.allResourceIds = _.pluck(result.rows, "resourceId");
+
+    let allResourceIds = _.pluck(result.rows, "resourceId");
+    Store.setAttribute("allResourceIds", _.uniq(allResourceIds));
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            counter++;
 
             await targetClient.execute(
                 insertQuery,
@@ -58,13 +58,12 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
     if (_.isEmpty(result.rows)) {
         return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(`${chalk.green(`✓`)}  Inserted ${counter} AuthzRoles rows...`);
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(
@@ -73,23 +72,21 @@ const copyAuthzRoles = async function(sourceClient, targetClient) {
     );
 };
 
-const copyAuthzMembers = async function(sourceClient, targetClient) {
+const copyAuthzMembers = async function(source, target) {
     const query = `SELECT * FROM "AuthzMembers" WHERE "memberId" IN ? LIMIT ${
         clientOptions.fetchSize
     } ALLOW FILTERING`;
     const insertQuery = `INSERT INTO "AuthzMembers" ("resourceId", "memberId", role) VALUES (?, ?, ?)`;
-    let counter = 0;
 
-    let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            counter++;
 
             await targetClient.execute(
                 insertQuery,
@@ -107,15 +104,12 @@ const copyAuthzMembers = async function(sourceClient, targetClient) {
     if (_.isEmpty(result.rows)) {
         return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzMembers rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(

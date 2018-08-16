@@ -13,61 +13,57 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require('chalk');
-const _ = require('underscore');
-const logger = require('../logger');
-const store = require('../store');
-const util = require('../util');
+const chalk = require("chalk");
+const _ = require("underscore");
+const logger = require("../logger");
+const { Store } = require("../store");
+const util = require("../util");
 
 const clientOptions = {
-	fetchSize: 999999,
-	prepare: true
+    fetchSize: 999999,
+    prepare: true
 };
 
-const copyAuthzInvitations = async function (sourceClient, targetClient) {
-	const query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`;
-	let counter = 0;
+const copyAuthzInvitations = async function(source, target) {
+    const query = `SELECT * FROM "AuthzInvitations" WHERE "resourceId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthzInvitations" ("resourceId", email, "inviterUserId", role) VALUES (?, ?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.allResourceIds],
+        [Store.getAttribute("allResourceIds")],
         clientOptions
     );
-	store.allInvitationEmails = _.pluck(result.rows, 'email');
+    let invitationEmails = _.pluck(result.rows, "email");
+    Store.setAttribute("allInvitationEmails", _.uniq(invitationEmails));
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.resourceId, row.email, row.inviterUserId, row.role],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthzInvitations rows found...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} AuthzInvitations rows..`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allResourceIds],
+        [Store.getAttribute("allResourceIds")],
         clientOptions
     );
     util.compareBothTenants(
@@ -76,63 +72,53 @@ const copyAuthzInvitations = async function (sourceClient, targetClient) {
     );
 };
 
-const copyAuthzInvitationsResourceIdByEmail = async function (
-	sourceClient,
-	targetClient
-) {
-	if (_.isEmpty(store.allInvitationEmails)) {
+const copyAuthzInvitationsResourceIdByEmail = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
         logger.info(
             chalk.cyan(
                 `✗  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`
             )
         );
         return [];
-	}
+    }
 
-	const query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthzInvitationsResourceIdByEmail" (email, "resourceId") VALUES (?, ?)`;
-	let counter = 0;
+    const query = `SELECT * FROM "AuthzInvitationsResourceIdByEmail" WHERE email IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthzInvitationsResourceIdByEmail" (email, "resourceId") VALUES (?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.allInvitationEmails],
+        [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.email, row.resourceId],
                 clientOptions
             );
-		}
-	}
+        }
+    }
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthzInvitationsResourceIdByEmail rows found...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
 
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} AuthzInvitationsResourceIdByEmail rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allInvitationEmails],
+        [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
     util.compareBothTenants(
@@ -141,63 +127,54 @@ const copyAuthzInvitationsResourceIdByEmail = async function (
     );
 };
 
-const copyAuthzInvitationsTokenByEmail = async function (
-	sourceClient,
-	targetClient
-) {
-	if (_.isEmpty(store.allInvitationEmails)) {
+const copyAuthzInvitationsTokenByEmail = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
         logger.info(
             chalk.cyan(
                 `✗  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`
             )
         );
         return [];
-	}
-	const query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`;
-	let counter = 0;
+    }
+    const query = `SELECT * FROM "AuthzInvitationsTokenByEmail" WHERE email IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthzInvitationsTokenByEmail" (email, "token") VALUES (?, ?)`;
 
-	result = await targetClient.execute(
+    result = await source.client.execute(
         query,
-        [store.allInvitationEmails],
+        [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
-	store.allInvitationTokens = _.pluck(result.rows, 'token');
+    let allInvitationTokens = _.pluck(result.rows, "token");
+    Store.setAttribute("allInvitationTokens", _.uniq(allInvitationTokens));
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.email, row.token],
                 clientOptions
             );
-		}
-	}
+        }
+    }
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthzInvitationsTokenByEmail rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
 
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} AuthzInvitationsTokenIdByEmail rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allInvitationEmails],
+        [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
     util.compareBothTenants(
@@ -206,63 +183,53 @@ const copyAuthzInvitationsTokenByEmail = async function (
     );
 };
 
-const copyAuthzInvitationsEmailByToken = async function (
-	sourceClient,
-	targetClient
-) {
-	if (_.isEmpty(store.allInvitationTokens)) {
+const copyAuthzInvitationsEmailByToken = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("allInvitationTokens"))) {
         logger.info(
             chalk.cyan(
                 `✗  Skipped fetching AuthzInvitationsEmailByToken rows...\n`
             )
         );
         return [];
-	}
+    }
 
-	const query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "AuthzInvitationsEmailByToken" ("token", email) VALUES (?, ?)`;
-	let counter = 0;
+    const query = `SELECT * FROM "AuthzInvitationsEmailByToken" WHERE "token" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "AuthzInvitationsEmailByToken" ("token", email) VALUES (?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.allInvitationTokens],
+        [Store.getAttribute("allInvitationTokens")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.token, row.email],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } AuthzInvitationsEmailByToken rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} AuthzInvitationsEmailByToken rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.allInvitationTokens],
+        [Store.getAttribute("allInvitationTokens")],
         clientOptions
     );
     util.compareBothTenants(
@@ -272,8 +239,8 @@ const copyAuthzInvitationsEmailByToken = async function (
 };
 
 module.exports = {
-	copyAuthzInvitations,
-	copyAuthzInvitationsEmailByToken,
-	copyAuthzInvitationsResourceIdByEmail,
-	copyAuthzInvitationsTokenByEmail
+    copyAuthzInvitations,
+    copyAuthzInvitationsEmailByToken,
+    copyAuthzInvitationsResourceIdByEmail,
+    copyAuthzInvitationsTokenByEmail
 };

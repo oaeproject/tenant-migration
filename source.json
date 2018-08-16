@@ -2,14 +2,14 @@
     "sourceDatabase": {
         "keyspace": "oae",
         "host": "localhost",
-        "timeout": 3000,
-        "tenantAlias": "up",
+        "timeout": 6000,
+        "tenantAlias": "apereo",
         "strategyClass": "SimpleStrategy",
-        "replication": 1
+        "replication": 3
     },
     "sourceFileHost": {
-        "host": "localhost",
-        "user": "miguel",
-        "path": "/Users/miguel/Work"
+        "host": "monitor.aws.oaeproject.org",
+        "user": "root",
+        "path": "/shared/"
     }
 }

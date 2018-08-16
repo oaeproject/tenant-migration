@@ -13,24 +13,24 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require('chalk');
-const logger = require('./logger');
+const chalk = require("chalk");
+const logger = require("./logger");
 
-const compareBothTenants = function (queryResultOnSource, queryResultOnTarget) {
-	let logMessage = '';
-	let logMark = '';
+const compareBothTenants = function(queryResultOnSource, queryResultOnTarget) {
+    let logMessage = "";
+    let logMark = "";
 
-	if (queryResultOnSource === queryResultOnTarget) {
-		logMark = '✓';
-		logMessage = `Numbers of rows fetched/inserted match`;
+    if (queryResultOnSource === queryResultOnTarget) {
+        logMark = "✓";
+        logMessage = `Numbers of rows fetched/inserted match`;
         logger.info(chalk.green(`${logMark}  ${logMessage}...\n`));
-	} else {
-		logMark = '✗';
-		logMessage = `Number of rows fetched/inserted don't match`;
+    } else {
+        logMark = "✗";
+        logMessage = `Number of rows fetched/inserted don't match: ${queryResultOnSource} / ${queryResultOnTarget}`;
         logger.info(chalk.red(`${logMark}  ${logMessage}...\n`));
-	}
+    }
 };
 
 module.exports = {
-	compareBothTenants
+    compareBothTenants
 };

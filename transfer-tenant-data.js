@@ -14,27 +14,14 @@
  * permissions and limitations under the License.
  */
 
-// @format
 const fs = require("fs");
-const path = require("path");
-const _ = require("underscore");
 const chalk = require("chalk");
 
 const logger = require("./logger");
+let { Store } = require("./store");
 const { initConnection } = require("./db");
-const createSchemaQueries = require("./schema.js");
-const store = require("./store");
 const rsync = require("./rsync");
-
-// Read json file with source database and keyspace
-let fileContents = fs.readFileSync("source.json");
-const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
-store.sourceDatabase = sourceDatabase;
-
-// Read json file with target database and keyspace
-fileContents = fs.readFileSync("target.json");
-const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
-store.targetDatabase = targetDatabase;
+const createSchemaQueries = require("./schema.js");
 
 const {
     copyAllPrincipals,
@@ -82,6 +69,15 @@ const {
     copyAuthzInvitationsTokenByEmail
 } = require("./invitations/dao");
 
+new Store();
+Store.init();
+
+let fileContents = fs.readFileSync("source.json");
+const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
+
+fileContents = fs.readFileSync("target.json");
+const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
+
 const makeSureTablesExistOnTarget = async function(
     targetClient,
     createAllTables
@@ -96,50 +92,62 @@ const makeSureTablesExistOnTarget = async function(
     await Promise.all(allPromises);
 };
 
-const runDatabaseCopy = async function(sourceClient, targetClient) {
-    await copyAllTenants(sourceClient, targetClient);
-    await copyTenantConfig(sourceClient, targetClient);
-    await copyAllPrincipals(sourceClient, targetClient);
-    await copyPrincipalsByEmail(sourceClient, targetClient);
-    await copyAuthzMembers(sourceClient, targetClient);
-    await copyAuthzRoles(sourceClient, targetClient);
-    await copyAllFolders(sourceClient, targetClient);
-    await copyFoldersGroupIds(sourceClient, targetClient);
-    await copyAllContent(sourceClient, targetClient);
-    await copyRevisionByContent(sourceClient, targetClient);
-    await copyRevisions(sourceClient, targetClient);
-    await copyDiscussions(sourceClient, targetClient);
-    await copyMessageBoxMessages(sourceClient, targetClient);
-    await copyMessages(sourceClient, targetClient);
-    await copyMessageBoxMessagesDeleted(sourceClient, targetClient);
-    await copyMessageBoxRecentContributions(sourceClient, targetClient);
-    await copyUsersGroupVisits(sourceClient, targetClient);
-    await copyFollowingUsersFollowers(sourceClient, targetClient);
-    await copyFollowingUsersFollowing(sourceClient, targetClient);
-    await copyAuthenticationUserLoginId(sourceClient, targetClient);
-    await copyAuthenticationLoginId(sourceClient, targetClient);
-    await copyOAuthClientsByUser(sourceClient, targetClient);
-    await copyOAuthClients(sourceClient, targetClient);
-    await copyAuthzInvitations(sourceClient, targetClient);
-    await copyAuthzInvitationsResourceIdByEmail(sourceClient, targetClient);
-    await copyAuthzInvitationsTokenByEmail(sourceClient, targetClient);
-    await copyAuthzInvitationsEmailByToken(sourceClient, targetClient);
+const runDatabaseCopy = async function(source, target) {
+    await copyAllTenants(source, target);
+    await copyTenantConfig(source, target);
+    await copyAllPrincipals(source, target);
+    await copyPrincipalsByEmail(source, target);
+    await copyAuthzMembers(source, target);
+    await copyAuthzRoles(source, target);
+    await copyAllFolders(source, target);
+    await copyFoldersGroupIds(source, target);
+    await copyAllContent(source, target);
+    await copyRevisionByContent(source, target);
+    await copyRevisions(source, target);
+    await copyDiscussions(source, target);
+    await copyMessageBoxMessages(source, target);
+    await copyMessages(source, target);
+    await copyMessageBoxMessagesDeleted(source, target);
+    await copyMessageBoxRecentContributions(source, target);
+    await copyUsersGroupVisits(source, target);
+    await copyFollowingUsersFollowers(source, target);
+    await copyFollowingUsersFollowing(source, target);
+    await copyAuthenticationUserLoginId(source, target);
+    await copyAuthenticationLoginId(source, target);
+    await copyOAuthClientsByUser(source, target);
+    await copyOAuthClients(source, target);
+    await copyAuthzInvitations(source, target);
+    await copyAuthzInvitationsResourceIdByEmail(source, target);
+    await copyAuthzInvitationsTokenByEmail(source, target);
+    await copyAuthzInvitationsEmailByToken(source, target);
 };
 
 const init = async function() {
     try {
         const sourceClient = await initConnection(sourceDatabase);
+        let source = {
+            database: sourceDatabase,
+            client: sourceClient,
+            fileHost: sourceFileHost
+        };
+
         const targetClient = await initConnection(targetDatabase);
+        let target = {
+            database: targetDatabase,
+            client: targetClient,
+            fileHost: targetFileHost
+        };
+
+        await makeSureTablesExistOnTarget(targetClient, createSchemaQueries);
+        await runDatabaseCopy(source, target);
 
         // Rsync the files
         let contentTypes = ["c", "f", "u", "g", "d"];
         // TODO change here: remove next line, which removes the document type
         contentTypes = ["c", "f", "u", "g"];
-        await rsync.runTransfer(sourceFileHost, targetFileHost, contentTypes);
+        await rsync.runTransfer(source, target, contentTypes);
 
-        // Start with the database data transfer
-        await makeSureTablesExistOnTarget(targetClient, createSchemaQueries);
-        await runDatabaseCopy(sourceClient, targetClient);
+        // TODO: rsync for assets
 
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
     } catch (error) {

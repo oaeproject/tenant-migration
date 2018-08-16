@@ -13,62 +13,56 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require('chalk');
-const _ = require('underscore');
-const logger = require('../logger');
-const store = require('../store');
-const util = require('../util');
+const chalk = require("chalk");
+const _ = require("underscore");
+const logger = require("../logger");
+const { Store } = require("../store");
+const util = require("../util");
 
 const clientOptions = {
-	fetchSize: 999999,
-	prepare: true
+    fetchSize: 999999,
+    prepare: true
 };
 
-const copyFollowingUsersFollowers = async function (sourceClient, targetClient) {
-	const query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
-	let counter = 0;
+const copyFollowingUsersFollowers = async function(source, target) {
+    const query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
+
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.userId, row.followerId, row.value],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } FollowingUsersFollowers rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} FollowingUsersFollowers rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(
@@ -77,51 +71,44 @@ const copyFollowingUsersFollowers = async function (sourceClient, targetClient) 
     );
 };
 
-const copyFollowingUsersFollowing = async function (sourceClient, targetClient) {
-	const query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
-	let counter = 0;
+const copyFollowingUsersFollowing = async function(source, target) {
+    const query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.userId, row.followingId, row.value],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } FollowingUsersFollowing rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(
-            `✓`
-        )}  Inserted ${counter} FollowingUsersFollowing rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.tenantPrincipals],
+        [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
     util.compareBothTenants(
@@ -131,6 +118,6 @@ const copyFollowingUsersFollowing = async function (sourceClient, targetClient) 
 };
 
 module.exports = {
-	copyFollowingUsersFollowers,
-	copyFollowingUsersFollowing
+    copyFollowingUsersFollowers,
+    copyFollowingUsersFollowing
 };

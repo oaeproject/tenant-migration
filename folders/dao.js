@@ -13,141 +13,136 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require('chalk');
-const _ = require('underscore');
-const logger = require('../logger');
-const store = require('../store');
-
-const sourceDatabase = store.sourceDatabase;
-const util = require('../util');
+const chalk = require("chalk");
+const _ = require("underscore");
+const logger = require("../logger");
+const util = require("../util");
+const { Store } = require("../store");
 
 const clientOptions = {
-	fetchSize: 999999,
-	prepare: true
+    fetchSize: 999999,
+    prepare: true
 };
 
-const copyAllFolders = async function (sourceClient, targetClient) {
-	const query = `SELECT * FROM "Folders" LIMIT ${clientOptions.fetchSize}`;
-	const insertQuery = `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
-	let counter = 0;
-	const allRows = [];
+const copyAllFolders = async function(source, target) {
+    const query = `SELECT * FROM "Folders" LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
+    let counter = 0;
+    let allRows = [];
+    let folderGroupIdsFromThisTenancyAlone = [];
 
-	function doAllTheThings() {
-		const com = sourceClient.stream(query);
-		const p = new Promise(((resolve, reject) => {
-            // Com.on("end", resolve(allRows))
-            com.on('end', async () => {
+    function doAllTheThings() {
+        const com = source.client.stream(query);
+        const p = new Promise((resolve, reject) => {
+            com.on("end", async () => {
+                Store.setAttribute(
+                    "folderGroupIdsFromThisTenancyAlone",
+                    folderGroupIdsFromThisTenancyAlone
+                );
+
                 logger.info(
                     `${chalk.green(`✓`)}  Fetched ${
-                    	allRows.length
+                        allRows.length
                     } Folders rows...`
                 );
                 if (_.isEmpty(allRows)) {
-                	return;
+                    return;
                 }
-                await insertAll(targetClient, allRows);
-                logger.info(
-                    `${chalk.green(`✓`)}  Inserted ${counter} Folders rows...`
-                );
+                await insertAll(target.client, allRows);
 
                 util.compareBothTenants(allRows.length, counter);
                 resolve(allRows);
             });
-            com.on('error', reject);
-		}));
-		p.on = function () {
+            com.on("error", reject);
+        });
+        p.on = function() {
             com.on.apply(com, arguments);
             return p;
-		};
-		return p;
-	}
+        };
+        return p;
+    }
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            counter++;
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [
-                	row.id,
-                	row.created,
-                	row.createdBy,
-                	row.description,
-                	row.displayName,
-                	row.groupId,
-                	row.lastModified,
-                	row.previews,
-                	row.tenantAlias,
-                	row.visibility
+                    row.id,
+                    row.created,
+                    row.createdBy,
+                    row.description,
+                    row.displayName,
+                    row.groupId,
+                    row.lastModified,
+                    row.previews,
+                    row.tenantAlias,
+                    row.visibility
                 ],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
-	await doAllTheThings().on('readable', async function () {
-		// 'readable' is emitted as soon a row is received and parsed
-		let row;
-		while ((row = this.read())) {
-			if (
-				row.tenantAlias &&
-                row.tenantAlias === sourceDatabase.tenantAlias
-			) {
+    await doAllTheThings().on("readable", async function() {
+        // 'readable' is emitted as soon a row is received and parsed
+        let row;
+        while ((row = this.read())) {
+            if (
+                row.tenantAlias &&
+                row.tenantAlias === source.database.tenantAlias
+            ) {
                 allRows.push(row);
-                store.folderGroupIdsFromThisTenancyAlone.push(row.groupId);
-			}
-		}
-	});
+                folderGroupIdsFromThisTenancyAlone.push(row.groupId);
+            }
+        }
+    });
 };
 
-const copyFoldersGroupIds = async function (sourceClient, targetClient) {
-	if (_.isEmpty(store.folderGroupIdsFromThisTenancyAlone)) {
+const copyFoldersGroupIds = async function(source, target) {
+    if (_.isEmpty(Store.getAttribute("folderGroupIdsFromThisTenancyAlone"))) {
         logger.info(chalk.cyan(`✗  Skipped fetching FoldersGroupId rows...\n`));
         return [];
-	}
-	const query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ? LIMIT ${
-		clientOptions.fetchSize
-	}`;
-	const insertQuery = `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`;
-	let counter = 0;
+    }
+    const query = `SELECT * FROM "FoldersGroupId" WHERE "groupId" IN ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "FoldersGroupId" ("groupId", "folderId") VALUES (?, ?)`;
 
-	let result = await sourceClient.execute(
+    let result = await source.client.execute(
         query,
-        [store.folderGroupIdsFromThisTenancyAlone],
+        [Store.getAttribute("folderGroupIdsFromThisTenancyAlone")],
         clientOptions
     );
 
-	async function insertAll(targetClient, rows) {
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			counter++;
+    async function insertAll(targetClient, rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
 
-			await targetClient.execute(
+            await targetClient.execute(
                 insertQuery,
                 [row.groupId, row.folderId],
                 clientOptions
             );
-		}
-	}
+        }
+    }
 
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${
-        	result.rows.length
+            result.rows.length
         } FoldersGroupId rows...`
     );
     if (_.isEmpty(result.rows)) {
-    	return;
+        return;
     }
-    await insertAll(targetClient, result.rows);
-    logger.info(
-        `${chalk.green(`✓`)}  Inserted ${counter} FoldersGroupId rows...`
-    );
+    await insertAll(target.client, result.rows);
 
     const queryResultOnSource = result;
-    result = await targetClient.execute(
+    result = await target.client.execute(
         query,
-        [store.folderGroupIdsFromThisTenancyAlone],
+        [Store.getAttribute("folderGroupIdsFromThisTenancyAlone")],
         clientOptions
     );
     util.compareBothTenants(
@@ -157,6 +152,6 @@ const copyFoldersGroupIds = async function (sourceClient, targetClient) {
 };
 
 module.exports = {
-	copyAllFolders,
-	copyFoldersGroupIds
+    copyAllFolders,
+    copyFoldersGroupIds
 };
