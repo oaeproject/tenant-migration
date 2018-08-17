@@ -145,7 +145,8 @@ const init = async function() {
         let contentTypes = ["c", "f", "u", "g", "d"];
         // TODO change here: remove next line, which removes the document type
         contentTypes = ["c", "f", "u", "g"];
-        await rsync.runTransfer(source, target, contentTypes);
+        await rsync.transferFiles(source, target, contentTypes);
+        await rsync.transferAssets(source, target);
 
         // TODO: rsync for assets
 

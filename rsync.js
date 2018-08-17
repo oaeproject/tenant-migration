@@ -21,7 +21,7 @@ const mkdirp = require("mkdirp2");
 
 const logger = require("./logger");
 
-const runTransfer = async function(source, target, contentTypes) {
+const transferFiles = async function(source, target, contentTypes) {
     const foldersToSync = _.map(contentTypes, eachContentType => {
         return path.join("files", eachContentType);
     });
@@ -126,6 +126,53 @@ const runEachTransfer = async function(
     logger.info(`${chalk.green(`✓`)}  Complete!`);
 };
 
+const transferAssets = async function(source, target) {
+    // Create the ssh connections to both origin/target servers
+    const sourceHostConnection = new ConnectionPool([
+        `${source.fileHost.user}@${source.fileHost.host}`
+    ]);
+    const targetHostConnection = new ConnectionPool([
+        `${target.fileHost.user}@${target.fileHost.host}`
+    ]);
+
+    let sourceAssetsPath = path.join(
+        "/shared/assets",
+        source.database.tenantAlias
+    );
+    let localAssetsPath = path.join(process.cwd(), "assets");
+    let targetAssetsPath = path.join(target.fileHost.path, "assets");
+
+    logger.info(
+        `${chalk.green(`✓`)}  Syncing ${chalk.cyan(sourceAssetsPath)} on ${
+            source.fileHost.host
+        } with ${chalk.cyan(localAssetsPath)} on localhost`
+    );
+    await sourceHostConnection.copyFromRemote(
+        sourceAssetsPath,
+        localAssetsPath,
+        {
+            verbosityLevel: 3
+        }
+    );
+
+    logger.info(
+        `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
+            path.join(localAssetsPath, source.database.tenantAlias)
+        )} on localhost with ${chalk.cyan(targetAssetsPath)} on ${
+            target.fileHost.host
+        }`
+    );
+    await targetHostConnection.run(`mkdir -p ${targetAssetsPath}`);
+    await targetHostConnection.copyToRemote(
+        path.join(localAssetsPath, source.database.tenantAlias),
+        targetAssetsPath,
+        {
+            verbosityLevel: 3
+        }
+    );
+};
+
 module.exports = {
-    runTransfer
+    transferFiles,
+    transferAssets
 };

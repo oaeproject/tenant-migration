@@ -37,7 +37,42 @@ const copyAuthzRoles = async function(source, target) {
         clientOptions
     );
 
-    let allResourceIds = _.pluck(result.rows, "resourceId");
+    // experimental: lets filter resources so that only the tenant's own resources are stored
+    _.each(result.rows, eachRow => {
+        if (
+            eachRow.resourceId.split(":")[1] !== source.database.tenantAlias &&
+            eachRow.role === "manager"
+        ) {
+            let oldResourceId = eachRow.resourceId;
+            eachRow.resourceId = [
+                eachRow.resourceId.split(":")[0],
+                source.database.tenantAlias,
+                eachRow.resourceId.split(":")[2]
+            ].join(":");
+
+            logger.info(
+                `${chalk.green(`✓`)}
+                Moved resource from ${oldResourceId} to ${eachRow.resourceId}`
+            );
+        }
+    });
+
+    // lets move the tenancy of this resource in case it's a manager
+    let allResources = _.filter(result.rows, eachResource => {
+        let result =
+            eachResource.resourceId.split(":")[1] ===
+            source.database.tenantAlias;
+        if (!result) {
+            console.log(
+                "rejecting resource: " +
+                    eachResource.resourceId +
+                    " / role was: " +
+                    eachResource.role
+            );
+        }
+        return result;
+    });
+    allResourceIds = _.pluck(allResources, "resourceId");
     Store.setAttribute("allResourceIds", _.uniq(allResourceIds));
 
     async function insertAll(targetClient, rows) {
