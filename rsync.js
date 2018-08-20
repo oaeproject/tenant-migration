@@ -18,6 +18,7 @@ const _ = require("underscore");
 const chalk = require("chalk");
 const { ConnectionPool } = require("ssh-pool");
 const mkdirp = require("mkdirp2");
+const { Store } = require("./store");
 
 const logger = require("./logger");
 
@@ -73,7 +74,108 @@ const transferFiles = async function(source, target, contentTypes) {
             source.database.tenantAlias
         );
     }
+
+    let movedResources = Store.getAttribute("movedResources");
+    if (movedResources) {
+        for (let i = 0; i < movedResources.length; i++) {
+            let eachResource = movedResources[i];
+            const eachResourceParts = eachResource.split(":");
+            const [
+                eachContentType,
+                tenantAlias,
+                eachResourceId
+            ] = eachResourceParts;
+
+            // TODO we need to later include etherpad documents in this
+            if (eachContentType !== "d") {
+                let eachCurrentFilePath = path.join(
+                    source.fileHost.path,
+                    "files",
+                    eachContentType,
+                    tenantAlias,
+                    eachResourceId.slice(0, 2),
+                    eachResourceId.slice(2, 4),
+                    eachResourceId.slice(4, 6),
+                    eachResourceId.slice(6, 8)
+                );
+                let eachLocalFilePath = path.join(
+                    process.cwd(),
+                    "files",
+                    eachContentType,
+                    tenantAlias,
+                    eachResourceId.slice(0, 2),
+                    eachResourceId.slice(2, 4),
+                    eachResourceId.slice(4, 6)
+                );
+                logger.info(
+                    `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
+                        eachCurrentFilePath
+                    )} on ${source.fileHost.host} with ${chalk.cyan(
+                        eachLocalFilePath
+                    )} on localhost`
+                );
+
+                // for some reason, the file we're copying might NOT exist remotely, so we need to check beforehand
+                let fileExistsOnSource = await sourceHostConnection.run(
+                    "test -d " + eachCurrentFilePath + "; echo $?"
+                );
+                fileExistsOnSource = parseInt(
+                    _.first(fileExistsOnSource).stdout
+                );
+
+                if (fileExistsOnSource === 0) {
+                    await mkdirp.promise(eachLocalFilePath);
+                    await sourceHostConnection.copyFromRemote(
+                        eachCurrentFilePath,
+                        eachLocalFilePath,
+                        {
+                            verbosityLevel: 3
+                        }
+                    );
+
+                    eachLocalFilePath = path.join(
+                        eachLocalFilePath,
+                        eachResourceId.slice(6, 8)
+                    );
+                    eachRemoteFilePath = path.join(
+                        targetPath,
+                        "files",
+                        eachContentType,
+                        source.database.tenantAlias,
+                        eachResourceId.slice(0, 2),
+                        eachResourceId.slice(2, 4),
+                        eachResourceId.slice(4, 6)
+                    );
+
+                    logger.info(
+                        `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
+                            eachLocalFilePath
+                        )} on localhost with ${chalk.cyan(
+                            eachRemoteFilePath
+                        )} on ${target.fileHost.host}`
+                    );
+                    await targetHostConnection.run(
+                        `mkdir -p ${eachRemoteFilePath}`
+                    );
+                    await targetHostConnection.copyToRemote(
+                        eachLocalFilePath,
+                        eachRemoteFilePath,
+                        {
+                            verbosityLevel: 3
+                        }
+                    );
+                }
+            }
+        }
+    }
 };
+
+const transferMovedResources = async function(
+    sourceHost,
+    targetHost,
+    rsyncData,
+    tenantAlias
+) {};
 
 const runEachTransfer = async function(
     sourceHost,

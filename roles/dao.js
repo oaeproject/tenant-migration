@@ -38,6 +38,7 @@ const copyAuthzRoles = async function(source, target) {
     );
 
     // experimental: lets filter resources so that only the tenant's own resources are stored
+    let movedResources = [];
     _.each(result.rows, eachRow => {
         if (
             eachRow.resourceId.split(":")[1] !== source.database.tenantAlias &&
@@ -51,26 +52,23 @@ const copyAuthzRoles = async function(source, target) {
             ].join(":");
 
             logger.info(
-                `${chalk.green(`✓`)}
-                Moved resource from ${oldResourceId} to ${eachRow.resourceId}`
+                `${chalk.green(`✓`)}  Moved resource from ${oldResourceId} to ${
+                    eachRow.resourceId
+                }`
             );
+
+            // I need to store these so that I can later copy the correspondent files
+            movedResources.push(oldResourceId);
         }
     });
+    Store.setAttribute("movedResources", movedResources);
 
     // lets move the tenancy of this resource in case it's a manager
     let allResources = _.filter(result.rows, eachResource => {
-        let result =
+        return (
             eachResource.resourceId.split(":")[1] ===
-            source.database.tenantAlias;
-        if (!result) {
-            console.log(
-                "rejecting resource: " +
-                    eachResource.resourceId +
-                    " / role was: " +
-                    eachResource.role
-            );
-        }
-        return result;
+            source.database.tenantAlias
+        );
     });
     allResourceIds = _.pluck(allResources, "resourceId");
     Store.setAttribute("allResourceIds", _.uniq(allResourceIds));
