@@ -15,6 +15,7 @@
  */
 
 const fs = require("fs");
+const path = require("path");
 const chalk = require("chalk");
 
 const logger = require("./logger");
@@ -30,7 +31,7 @@ const {
 
 const { copyAllFolders, copyFoldersGroupIds } = require("./folders/dao.js");
 
-const { copyAllTenants, copyTenantConfig } = require("./tenants/dao.js");
+const { copyTenantTable, copyTenantConfig } = require("./tenants/dao.js");
 
 const {
     copyDiscussions,
@@ -43,7 +44,8 @@ const {
 const {
     copyAllContent,
     copyRevisionByContent,
-    copyRevisions
+    copyRevisions,
+    copyEtherpadContent
 } = require("./content/dao");
 
 const { copyAuthzMembers, copyAuthzRoles } = require("./roles/dao");
@@ -72,10 +74,10 @@ const {
 new Store();
 Store.init();
 
-let fileContents = fs.readFileSync("source.json");
+let fileContents = fs.readFileSync(path.join(__dirname, "source.json"));
 const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
 
-fileContents = fs.readFileSync("target.json");
+fileContents = fs.readFileSync(path.join(__dirname, "target.json"));
 const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
 
 const makeSureTablesExistOnTarget = async function(
@@ -92,34 +94,43 @@ const makeSureTablesExistOnTarget = async function(
     await Promise.all(allPromises);
 };
 
-const runDatabaseCopy = async function(source, target) {
-    await copyAllTenants(source, target);
-    await copyTenantConfig(source, target);
-    await copyAllPrincipals(source, target);
-    await copyPrincipalsByEmail(source, target);
-    await copyAuthzMembers(source, target);
-    await copyAuthzRoles(source, target);
-    await copyAllFolders(source, target);
-    await copyFoldersGroupIds(source, target);
-    await copyAllContent(source, target);
-    await copyRevisionByContent(source, target);
-    await copyRevisions(source, target);
-    await copyDiscussions(source, target);
-    await copyMessageBoxMessages(source, target);
-    await copyMessages(source, target);
-    await copyMessageBoxMessagesDeleted(source, target);
-    await copyMessageBoxRecentContributions(source, target);
-    await copyUsersGroupVisits(source, target);
-    await copyFollowingUsersFollowers(source, target);
-    await copyFollowingUsersFollowing(source, target);
-    await copyAuthenticationUserLoginId(source, target);
-    await copyAuthenticationLoginId(source, target);
-    await copyOAuthClientsByUser(source, target);
-    await copyOAuthClients(source, target);
-    await copyAuthzInvitations(source, target);
-    await copyAuthzInvitationsResourceIdByEmail(source, target);
-    await copyAuthzInvitationsTokenByEmail(source, target);
-    await copyAuthzInvitationsEmailByToken(source, target);
+const runDatabaseCopy = async function(source, destination) {
+    let copyTenant = copyTenantTable(source, destination);
+    let copyConfig = copyTenantConfig(source, destination);
+
+    (async () => {
+        Promise.all([copyTenant, copyConfig])
+            .then
+            // log something here
+            ();
+    })();
+
+    await copyAllPrincipals(source, destination);
+    await copyPrincipalsByEmail(source, destination);
+    await copyAuthzMembers(source, destination);
+    await copyAuthzRoles(source, destination);
+    await copyAllFolders(source, destination);
+    await copyFoldersGroupIds(source, destination);
+    await copyAllContent(source, destination);
+    await copyRevisionByContent(source, destination);
+    await copyRevisions(source, destination);
+    await copyEtherpadContent(source, destination);
+    await copyDiscussions(source, destination);
+    await copyMessageBoxMessages(source, destination);
+    await copyMessages(source, destination);
+    await copyMessageBoxMessagesDeleted(source, destination);
+    await copyMessageBoxRecentContributions(source, destination);
+    await copyUsersGroupVisits(source, destination);
+    await copyFollowingUsersFollowers(source, destination);
+    await copyFollowingUsersFollowing(source, destination);
+    await copyAuthenticationUserLoginId(source, destination);
+    await copyAuthenticationLoginId(source, destination);
+    await copyOAuthClientsByUser(source, destination);
+    await copyOAuthClients(source, destination);
+    await copyAuthzInvitations(source, destination);
+    await copyAuthzInvitationsResourceIdByEmail(source, destination);
+    await copyAuthzInvitationsTokenByEmail(source, destination);
+    await copyAuthzInvitationsEmailByToken(source, destination);
 };
 
 const init = async function() {

@@ -26,51 +26,26 @@ const clientOptions = {
 };
 
 const copyDiscussions = async function(source, target) {
-    const query = `SELECT * FROM "Discussions" LIMIT ${
+    const query = `SELECT * FROM "Discussions" WHERE "tenantAlias" = ? LIMIT ${
         clientOptions.fetchSize
     }`;
     const insertQuery = `INSERT INTO "Discussions" (id, created, "createdBy", description, "displayName", "lastModified", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-    let counter = 0;
-    let allRows = [];
-    let discussionsFromThisTenancyAlone = [];
 
-    // Lets query discussions and all messages
-    function doAllTheThings() {
-        const com = source.client.stream(query);
-        const p = new Promise((resolve, reject) => {
-            com.on("end", async () => {
-                Store.setAttribute(
-                    "discussionsFromThisTenancyAlone",
-                    _.uniq(discussionsFromThisTenancyAlone)
-                );
-                logger.info(
-                    `${chalk.green(`✓`)}  Fetched ${
-                        allRows.length
-                    } Discussions rows...`
-                );
-
-                if (_.isEmpty(allRows)) {
-                    return;
-                }
-                await insertAll(target.client, allRows);
-
-                util.compareBothTenants(allRows.length, counter);
-                resolve(allRows);
-            });
-            com.on("error", reject);
-        });
-        p.on = function() {
-            com.on.apply(com, arguments);
-            return p;
-        };
-        return p;
-    }
+    let result = await source.client.execute(
+        query,
+        [source.database.tenantAlias],
+        clientOptions
+    );
+    let discussionsFromThisTenancyAlone = _.pluck(result.rows, "id");
+    Store.setAttribute(
+        "discussionsFromThisTenancyAlone",
+        _.uniq(discussionsFromThisTenancyAlone)
+    );
 
     // Query "Discussions" - This is very very inadequate but we can't filter it!
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            counter++;
 
             await targetClient.execute(
                 insertQuery,
@@ -89,19 +64,21 @@ const copyDiscussions = async function(source, target) {
         }
     }
 
-    return doAllTheThings().on("readable", function() {
-        // 'readable' is emitted as soon a row is received and parsed
-        let row;
-        while ((row = this.read())) {
-            if (
-                row.tenantAlias &&
-                row.tenantAlias === source.database.tenantAlias
-            ) {
-                allRows.push(row);
-                discussionsFromThisTenancyAlone.push(row.id);
-            }
-        }
-    });
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Discussions rows...`
+    );
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(target.client, result.rows);
+
+    const queryResultOnSource = result;
+    result = await target.client.execute(
+        query,
+        [source.database.tenantAlias],
+        clientOptions
+    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyMessageBoxMessages = async function(source, target) {
@@ -144,7 +121,7 @@ const copyMessageBoxMessages = async function(source, target) {
                     return;
                 }
                 await insertAll(target.client, allRows);
-                util.compareBothTenants(allRows.length, counter);
+                util.compareResults(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -213,7 +190,7 @@ const copyMessages = async function(source, target) {
                     return;
                 }
                 await insertAll(target.client, allRows);
-                util.compareBothTenants(allRows.length, counter);
+                util.compareResults(allRows.length, counter);
                 resolve(allRows);
             });
             com.on("error", reject);
@@ -309,10 +286,7 @@ const copyMessageBoxMessagesDeleted = async function(source, target) {
         [discussionsAndContentIds],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyMessageBoxRecentContributions = async function(source, target) {
@@ -371,10 +345,7 @@ const copyMessageBoxRecentContributions = async function(source, target) {
         [discussionsAndContentIds],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 module.exports = {

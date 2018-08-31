@@ -25,47 +25,25 @@ const clientOptions = {
 };
 
 const copyAllFolders = async function(source, target) {
-    const query = `SELECT * FROM "Folders" LIMIT ${clientOptions.fetchSize}`;
+    const query = `SELECT * FROM "Folders" WHERE "tenantAlias" = ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
     const insertQuery = `INSERT INTO "Folders" (id, created, "createdBy", description, "displayName", "groupId", "lastModified", previews, "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
-    let counter = 0;
-    let allRows = [];
-    let folderGroupIdsFromThisTenancyAlone = [];
 
-    function doAllTheThings() {
-        const com = source.client.stream(query);
-        const p = new Promise((resolve, reject) => {
-            com.on("end", async () => {
-                Store.setAttribute(
-                    "folderGroupIdsFromThisTenancyAlone",
-                    folderGroupIdsFromThisTenancyAlone
-                );
-
-                logger.info(
-                    `${chalk.green(`✓`)}  Fetched ${
-                        allRows.length
-                    } Folders rows...`
-                );
-                if (_.isEmpty(allRows)) {
-                    return;
-                }
-                await insertAll(target.client, allRows);
-
-                util.compareBothTenants(allRows.length, counter);
-                resolve(allRows);
-            });
-            com.on("error", reject);
-        });
-        p.on = function() {
-            com.on.apply(com, arguments);
-            return p;
-        };
-        return p;
-    }
+    let result = await source.client.execute(
+        query,
+        [source.database.tenantAlias],
+        clientOptions
+    );
+    let folderGroupIdsFromThisTenancyAlone = _.pluck(result.rows, "groupId");
+    Store.setAttribute(
+        "folderGroupIdsFromThisTenancyAlone",
+        folderGroupIdsFromThisTenancyAlone
+    );
 
     async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            counter++;
 
             await targetClient.execute(
                 insertQuery,
@@ -86,19 +64,22 @@ const copyAllFolders = async function(source, target) {
         }
     }
 
-    await doAllTheThings().on("readable", async function() {
-        // 'readable' is emitted as soon a row is received and parsed
-        let row;
-        while ((row = this.read())) {
-            if (
-                row.tenantAlias &&
-                row.tenantAlias === source.database.tenantAlias
-            ) {
-                allRows.push(row);
-                folderGroupIdsFromThisTenancyAlone.push(row.groupId);
-            }
-        }
-    });
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Folders rows...`
+    );
+
+    if (_.isEmpty(result.rows)) {
+        return;
+    }
+    await insertAll(target.client, result.rows);
+
+    const queryResultOnSource = result;
+    result = await target.client.execute(
+        query,
+        [source.database.tenantAlias],
+        clientOptions
+    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyFoldersGroupIds = async function(source, target) {
@@ -145,10 +126,7 @@ const copyFoldersGroupIds = async function(source, target) {
         [Store.getAttribute("folderGroupIdsFromThisTenancyAlone")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 module.exports = {

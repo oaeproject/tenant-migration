@@ -30,6 +30,7 @@ function Store() {
         Store.allResourceIds = [];
         Store.allLoginIds = [];
         Store.allTenantMessages = [];
+        Store.allTenancyContents = [];
     };
 
     Store.getAttribute = function(attribute) {

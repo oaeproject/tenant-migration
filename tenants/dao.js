@@ -15,8 +15,8 @@
 
 const chalk = require("chalk");
 const _ = require("underscore");
-const logger = require("../logger");
 
+const logger = require("../logger");
 const util = require("../util");
 
 const clientOptions = {
@@ -24,17 +24,24 @@ const clientOptions = {
     prepare: true
 };
 
-const copyAllTenants = async function(source, target) {
+const copyTenantTable = async function(source, destination) {
     const query = `select * from "Tenant" where "alias" = ? LIMIT ${
         clientOptions.fetchSize
     }`;
-    let result = await source.client.execute(query, [
-        source.database.tenantAlias
-    ]);
-
     const insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
 
-    async function insertAll(targetClient, rows) {
+    let fetchedRows = await fetchTenants(source, query);
+    await insertTenants(destination, fetchedRows, insertQuery);
+    let insertedRows = await fetchTenants(destination, query);
+    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+};
+
+const insertTenants = async function(target, data, insertQuery) {
+    if (_.isEmpty(data.rows)) {
+        return;
+    }
+
+    await (async (targetClient, rows) => {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
 
@@ -47,34 +54,46 @@ const copyAllTenants = async function(source, target) {
                 row.host
             ]);
         }
-    }
+    })(target.client, data.rows);
+};
 
+const fetchTenants = async function(target, query) {
+    let result = await target.client.execute(query, [
+        target.database.tenantAlias
+    ]);
     logger.info(
         `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
     );
+    return result;
+};
+
+const copyTenantConfig = async function(source, destination) {
+    const query = `SELECT * FROM "Config" WHERE "tenantAlias" = ? LIMIT ${
+        clientOptions.fetchSize
+    }`;
+    const insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
+
+    let fetchedRows = await fetchConfig(source, query);
+    await insertConfig(destination, fetchedRows, insertQuery);
+    let insertedRows = await fetchConfig(destination, query);
+    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+};
+
+const fetchConfig = async function(target, query) {
+    let result = await target.client.execute(query, [
+        target.database.tenantAlias
+    ]);
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
+    );
+    return result;
+};
+
+const insertConfig = async function(target, result, insertQuery) {
     if (_.isEmpty(result.rows)) {
         return;
     }
-
-    await insertAll(target.client, result.rows);
-
-    const queryResultOnSource = result;
-    result = await target.client.execute(query, [source.database.tenantAlias]);
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
-};
-
-const copyTenantConfig = async function(source, target) {
-    const query = `SELECT * FROM "Config" WHERE "tenantAlias" = '${
-        source.database.tenantAlias
-    }' LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
-
-    let result = await source.client.execute(query);
-
-    async function insertAll(targetClient, rows) {
+    await (async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
 
@@ -84,26 +103,10 @@ const copyTenantConfig = async function(source, target) {
                 row.value
             ]);
         }
-    }
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
-    );
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-
-    await insertAll(target.client, result.rows);
-
-    const queryResultOnSource = result;
-    result = await target.client.execute(query);
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    })(target.client, result.rows);
 };
 
 module.exports = {
-    copyAllTenants,
+    copyTenantTable,
     copyTenantConfig
 };

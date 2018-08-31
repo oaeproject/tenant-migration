@@ -66,10 +66,7 @@ const copyAuthenticationUserLoginId = async function(source, target) {
         [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyAuthenticationLoginId = async function(source, target) {
@@ -117,10 +114,7 @@ const copyAuthenticationLoginId = async function(source, target) {
         [Store.getAttribute("allLoginIds")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyOAuthClients = async function(source, target) {
@@ -166,10 +160,7 @@ const copyOAuthClients = async function(source, target) {
         [Store.getAttribute("allOauthClientsIds")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyOAuthClientsByUser = async function(source, target) {
@@ -214,10 +205,7 @@ const copyOAuthClientsByUser = async function(source, target) {
         [Store.getAttribute("tenantUsers")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 module.exports = {

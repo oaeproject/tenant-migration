@@ -16,21 +16,21 @@
 const chalk = require("chalk");
 const logger = require("./logger");
 
-const compareBothTenants = function(queryResultOnSource, queryResultOnTarget) {
+const compareResults = function(queryResultOnSource, queryResultOnDestination) {
     let logMessage = "";
     let logMark = "";
 
-    if (queryResultOnSource === queryResultOnTarget) {
+    if (queryResultOnSource === queryResultOnDestination) {
         logMark = "✓";
         logMessage = `Numbers of rows fetched/inserted match`;
         logger.info(chalk.green(`${logMark}  ${logMessage}...\n`));
     } else {
         logMark = "✗";
-        logMessage = `Number of rows fetched/inserted don't match: ${queryResultOnSource} / ${queryResultOnTarget}`;
+        logMessage = `Number of rows fetched/inserted don't match: ${queryResultOnSource} / ${queryResultOnDestination}`;
         logger.info(chalk.red(`${logMark}  ${logMessage}...\n`));
     }
 };
 
 module.exports = {
-    compareBothTenants
+    compareResults
 };

@@ -66,10 +66,7 @@ const copyAuthzInvitations = async function(source, target) {
         [Store.getAttribute("allResourceIds")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyAuthzInvitationsResourceIdByEmail = async function(source, target) {
@@ -121,10 +118,7 @@ const copyAuthzInvitationsResourceIdByEmail = async function(source, target) {
         [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyAuthzInvitationsTokenByEmail = async function(source, target) {
@@ -177,10 +171,7 @@ const copyAuthzInvitationsTokenByEmail = async function(source, target) {
         [Store.getAttribute("allInvitationEmails")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyAuthzInvitationsEmailByToken = async function(source, target) {
@@ -232,10 +223,7 @@ const copyAuthzInvitationsEmailByToken = async function(source, target) {
         [Store.getAttribute("allInvitationTokens")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 module.exports = {

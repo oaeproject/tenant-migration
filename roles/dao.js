@@ -99,10 +99,7 @@ const copyAuthzRoles = async function(source, target) {
         [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 const copyAuthzMembers = async function(source, target) {
@@ -145,10 +142,7 @@ const copyAuthzMembers = async function(source, target) {
         [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
-    util.compareBothTenants(
-        queryResultOnSource.rows.length,
-        result.rows.length
-    );
+    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 };
 
 module.exports = {
