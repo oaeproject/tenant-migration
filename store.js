@@ -31,10 +31,12 @@ function Store() {
         Store.allLoginIds = [];
         Store.allTenantMessages = [];
         Store.allTenancyContents = [];
+      Store.movedResources = [];
     };
 
     Store.getAttribute = function(attribute) {
-        return Store[attribute].slice(0);
+// clone the array and return it
+            return Store[attribute].slice(0);
     };
 
     Store.setAttribute = function(attribute, value) {

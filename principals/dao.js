@@ -24,16 +24,14 @@ const clientOptions = {
     prepare: true
 };
 
-const copyAllPrincipals = async function(source, target) {
-    const query = `SELECT * FROM "Principals" WHERE "tenantAlias" = ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "Principals" ("principalId", "acceptedTC", "admin:global", "admin:tenant", created, "createdBy", deleted, description, "displayName", email, "emailPreference", joinable, "largePictureUri", "lastModified", locale, "mediumPictureUri", "notificationsLastRead", "notificationsUnread", "publicAlias", "smallPictureUri", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-    let result = await source.client.execute(
+const fetchAllPrincipals = async function(target, query) {
+    let result = await target.client.execute(
         query,
-        [source.database.tenantAlias],
+        [target.database.tenantAlias],
         clientOptions
+    );
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
     );
 
     // We'll need to know which principals are users or groups
@@ -48,16 +46,22 @@ const copyAllPrincipals = async function(source, target) {
             tenantUsers.push(row.principalId);
         }
     });
-
     Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
     Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
     Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
 
-    async function insertAll(targetClient, rows) {
+    return result;
+};
+
+const insertPrincipals = async function(target, data, insertQuery) {
+    if (_.isEmpty(data.rows)) {
+        return;
+    }
+    await (async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
 
-            await target.client.execute(
+            await targetClient.execute(
                 insertQuery,
                 [
                     row.principalId,
@@ -86,38 +90,67 @@ const copyAllPrincipals = async function(source, target) {
                 clientOptions
             );
         }
-    }
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
-    );
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await insertAll(target.client, result.rows);
-
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [source.database.tenantAlias],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+    })(target.client, data.rows);
 };
 
-const copyPrincipalsByEmail = async function(source, target) {
-    const query = `SELECT * FROM "PrincipalsByEmail" WHERE "principalId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    } ALLOW FILTERING`;
-    const insertQuery = `INSERT INTO "PrincipalsByEmail" (email, "principalId") VALUES (?, ?)`;
+const copyPrincipals = async function(source, destination) {
+    const query = `
+      SELECT *
+      FROM "Principals"
+      WHERE "tenantAlias" = ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "Principals" (
+      "principalId",
+      "acceptedTC",
+      "admin:global",
+      "admin:tenant",
+      created,
+      "createdBy",
+      deleted,
+      description,
+      "displayName",
+      email,
+      "emailPreference",
+      joinable,
+      "largePictureUri",
+      "lastModified",
+      locale,
+      "mediumPictureUri",
+      "notificationsLastRead",
+      "notificationsUnread",
+      "publicAlias",
+      "smallPictureUri",
+      "tenantAlias",
+      visibility)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    let result = await source.client.execute(
+    let fetchedRows = await fetchAllPrincipals(source, query);
+    await insertPrincipals(destination, fetchedRows, insertQuery);
+    let insertedRows = await fetchAllPrincipals(destination, query);
+    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+};
+
+const fetchPrincipalsByEmail = async function(target, query) {
+    let result = await target.client.execute(
         query,
         [Store.getAttribute("tenantPrincipals")],
         clientOptions
     );
+    logger.info(
+        `${chalk.green(`✓`)}  Fetched ${
+            result.rows.length
+        } PrincipalsByEmail rows...`
+    );
 
-    async function insertAll(targetClient, rows) {
+    return result;
+};
+
+const insertPrincipalsByEmail = async function(target, data, insertQuery) {
+    if (_.isEmpty(data.rows)) {
+        return;
+    }
+    await (async function insertAll(targetClient, rows) {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
 
@@ -127,28 +160,29 @@ const copyPrincipalsByEmail = async function(source, target) {
                 clientOptions
             );
         }
-    }
+    })(target.client, data.rows);
+};
 
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
-        } PrincipalsByEmail rows...`
-    );
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await insertAll(target.client, result.rows);
+const copyPrincipalsByEmail = async function(source, destination) {
+    const query = `
+      SELECT *
+      FROM "PrincipalsByEmail"
+      WHERE "principalId" IN ?
+      LIMIT ${clientOptions.fetchSize}
+      ALLOW FILTERING`;
+    const insertQuery = `
+      INSERT INTO "PrincipalsByEmail" (
+        email,
+        "principalId")
+      VALUES (?, ?)`;
 
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [Store.getAttribute("tenantPrincipals")],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+    let fetchedRows = await fetchPrincipalsByEmail(source, query);
+    await insertPrincipalsByEmail(destination, fetchedRows, insertQuery);
+    let insertedRows = await fetchPrincipalsByEmail(destination, query);
+    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 module.exports = {
-    copyAllPrincipals,
+    copyPrincipals,
     copyPrincipalsByEmail
 };

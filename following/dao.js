@@ -25,15 +25,22 @@ const clientOptions = {
 };
 
 const copyFollowingUsersFollowers = async function(source, target) {
-    const query = `SELECT * FROM "FollowingUsersFollowers" WHERE "userId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "FollowingUsersFollowers" ("userId", "followerId", "value") VALUES (?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "FollowingUsersFollowers"
+      WHERE "userId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "FollowingUsersFollowers" (
+          "userId",
+          "followerId",
+          "value")
+          VALUES (?, ?, ?)`;
 
     let result = await source.client.execute(
         query,
         [Store.getAttribute("tenantPrincipals")],
-
         clientOptions
     );
 
@@ -69,10 +76,18 @@ const copyFollowingUsersFollowers = async function(source, target) {
 };
 
 const copyFollowingUsersFollowing = async function(source, target) {
-    const query = `SELECT * FROM "FollowingUsersFollowing" WHERE "userId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "FollowingUsersFollowing" ("userId", "followingId", "value") VALUES (?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "FollowingUsersFollowing"
+      WHERE "userId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "FollowingUsersFollowing" (
+          "userId",
+          "followingId",
+          "value")
+          VALUES (?, ?, ?)`;
 
     let result = await source.client.execute(
         query,

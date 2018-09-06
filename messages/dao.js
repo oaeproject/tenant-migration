@@ -26,10 +26,22 @@ const clientOptions = {
 };
 
 const copyDiscussions = async function(source, target) {
-    const query = `SELECT * FROM "Discussions" WHERE "tenantAlias" = ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "Discussions" (id, created, "createdBy", description, "displayName", "lastModified", "tenantAlias", visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "Discussions"
+      WHERE "tenantAlias" = ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "Discussions" (
+          id,
+          created,
+          "createdBy",
+          description,
+          "displayName",
+          "lastModified",
+          "tenantAlias",
+          visibility)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
     let result = await source.client.execute(
         query,
@@ -82,10 +94,18 @@ const copyDiscussions = async function(source, target) {
 };
 
 const copyMessageBoxMessages = async function(source, target) {
-    const query = `SELECT * FROM "MessageBoxMessages" WHERE "messageBoxId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "MessageBoxMessages" ("messageBoxId", "threadKey", value) VALUES (?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "MessageBoxMessages"
+      WHERE "messageBoxId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "MessageBoxMessages" (
+          "messageBoxId",
+          "threadKey",
+          value)
+          VALUES (?, ?, ?)`;
     let counter = 0;
     let allRows = [];
     let threadKeysFromThisTenancyAlone = [];
@@ -161,8 +181,18 @@ const copyMessageBoxMessages = async function(source, target) {
 };
 
 const copyMessages = async function(source, target) {
-    const query = `SELECT * FROM "Messages" LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `INSERT INTO "Messages" (id, body, "createdBy", deleted, "threadKey") VALUES (?, ?, ?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "Messages"
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "Messages" (
+          id,
+          body,
+          "createdBy",
+          deleted,
+          "threadKey")
+          VALUES (?, ?, ?, ?, ?)`;
     let counter = 0;
     let allRows = [];
     let allTenantMessages = [];
@@ -241,10 +271,18 @@ const copyMessageBoxMessagesDeleted = async function(source, target) {
         return [];
     }
     // MessageBoxMessagesDeleted
-    const query = `SELECT * FROM "MessageBoxMessagesDeleted" WHERE "messageBoxId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "MessageBoxMessagesDeleted" ("messageBoxId", "createdTimestamp", value) VALUES (?, ? ,?)`;
+    const query = `
+      SELECT *
+      FROM "MessageBoxMessagesDeleted"
+      WHERE "messageBoxId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "MessageBoxMessagesDeleted" (
+          "messageBoxId",
+          "createdTimestamp",
+          value)
+          VALUES (?, ? ,?)`;
 
     let discussionsAndContentIds = _.union(
         Store.getAttribute("discussionsFromThisTenancyAlone"),
@@ -299,10 +337,18 @@ const copyMessageBoxRecentContributions = async function(source, target) {
         return [];
     }
     // MessageBoxRecentContributions
-    const query = `SELECT * FROM "MessageBoxRecentContributions" WHERE "messageBoxId" IN ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "MessageBoxRecentContributions" ("messageBoxId", "contributorId", value) VALUES (?, ?, ?)`;
+    const query = `
+      SELECT *
+      FROM "MessageBoxRecentContributions"
+      WHERE "messageBoxId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "MessageBoxRecentContributions" (
+          "messageBoxId",
+          "contributorId",
+          value)
+          VALUES (?, ?, ?)`;
 
     let discussionsAndContentIds = _.union(
         Store.getAttribute("allContentIds"),

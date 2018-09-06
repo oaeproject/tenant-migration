@@ -11,6 +11,7 @@
  * software distributed under the License is distributed on an "AS IS"
  * BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
  * or implied. See the License for the specific language governing
+      console.log('Copying tenant resources');
  * permissions and limitations under the License.
  */
 
@@ -25,13 +26,13 @@ const rsync = require("./rsync");
 const createSchemaQueries = require("./schema.js");
 
 const {
-    copyAllPrincipals,
+    copyPrincipals,
     copyPrincipalsByEmail
 } = require("./principals/dao.js");
 
-const { copyAllFolders, copyFoldersGroupIds } = require("./folders/dao.js");
+const { copyFolders, copyFoldersGroupIds } = require("./folders/dao.js");
 
-const { copyTenantTable, copyTenantConfig } = require("./tenants/dao.js");
+const { copyTenant, copyTenantConfig } = require("./tenants/dao.js");
 
 const {
     copyDiscussions,
@@ -42,7 +43,7 @@ const {
 } = require("./messages/dao.js");
 
 const {
-    copyAllContent,
+    copyContent,
     copyRevisionByContent,
     copyRevisions,
     copyEtherpadContent
@@ -94,43 +95,82 @@ const makeSureTablesExistOnTarget = async function(
     await Promise.all(allPromises);
 };
 
-const runDatabaseCopy = async function(source, destination) {
-    let copyTenant = copyTenantTable(source, destination);
-    let copyConfig = copyTenantConfig(source, destination);
+const runDatabaseCopy = async function(...args) {
+    // Some of these are run one after the other, some are done concurrently
+    // the ones done isolated are the ones that set variables which other queries depend on
+    // all the others are just ran at the same time, so to maximize throughput
 
-    (async () => {
-        Promise.all([copyTenant, copyConfig])
-            .then
-            // log something here
-            ();
-    })();
+    async function copyTenantDataAndConfig(...args) {
+        await Promise.all([copyTenant(...args), copyTenantConfig(...args)]);
+    }
 
-    await copyAllPrincipals(source, destination);
-    await copyPrincipalsByEmail(source, destination);
-    await copyAuthzMembers(source, destination);
-    await copyAuthzRoles(source, destination);
-    await copyAllFolders(source, destination);
-    await copyFoldersGroupIds(source, destination);
-    await copyAllContent(source, destination);
-    await copyRevisionByContent(source, destination);
-    await copyRevisions(source, destination);
-    await copyEtherpadContent(source, destination);
-    await copyDiscussions(source, destination);
-    await copyMessageBoxMessages(source, destination);
-    await copyMessages(source, destination);
-    await copyMessageBoxMessagesDeleted(source, destination);
-    await copyMessageBoxRecentContributions(source, destination);
-    await copyUsersGroupVisits(source, destination);
-    await copyFollowingUsersFollowers(source, destination);
-    await copyFollowingUsersFollowing(source, destination);
-    await copyAuthenticationUserLoginId(source, destination);
-    await copyAuthenticationLoginId(source, destination);
-    await copyOAuthClientsByUser(source, destination);
-    await copyOAuthClients(source, destination);
-    await copyAuthzInvitations(source, destination);
-    await copyAuthzInvitationsResourceIdByEmail(source, destination);
-    await copyAuthzInvitationsTokenByEmail(source, destination);
-    await copyAuthzInvitationsEmailByToken(source, destination);
+    async function copyTenantPrincipals(...args) {
+        await copyPrincipals(...args);
+        await copyPrincipalsByEmail(...args);
+    }
+
+    async function copyTenantResources(...args) {
+        await Promise.all([copyAuthzMembers(...args), copyAuthzRoles(...args)]);
+    }
+
+    async function copyTenantFolders(...args) {
+        await copyFolders(...args);
+        await copyFoldersGroupIds(...args);
+    }
+
+    async function copyTenantContent(...args) {
+        await Promise.all([copyContent(...args), copyEtherpadContent(...args)]);
+        await copyRevisionByContent(...args);
+        await copyRevisions(...args);
+    }
+
+    async function copyTenantDiscussions(...args) {
+        await Promise.all([copyDiscussions(...args), copyMessages(...args)]);
+        await Promise.all([
+            copyMessageBoxMessages(...args),
+            copyMessageBoxMessagesDeleted(...args),
+            copyMessageBoxRecentContributions(...args)
+        ]);
+    }
+
+    async function copyTenantGroupsAndFollowers(...args) {
+        await Promise.all([
+            copyUsersGroupVisits(...args),
+            copyFollowingUsersFollowers(...args),
+            copyFollowingUsersFollowing(...args)
+        ]);
+    }
+
+    async function copyTenantAuthenticationSettings(...args) {
+        await Promise.all([
+            await copyOAuthClientsByUser(...args),
+            await copyAuthenticationUserLoginId(...args)
+        ]);
+        await Promise.all([
+            await copyOAuthClients(...args),
+            await copyAuthenticationLoginId(...args)
+        ]);
+    }
+
+    async function copyTenantInvitations(...args) {
+        await copyAuthzInvitations(...args);
+        await Promise.all([
+            copyAuthzInvitationsResourceIdByEmail(...args),
+            copyAuthzInvitationsTokenByEmail(...args)
+        ]);
+
+        await copyAuthzInvitationsEmailByToken(...args);
+    }
+
+    await copyTenantDataAndConfig(...args);
+    await copyTenantPrincipals(...args);
+    await copyTenantResources(...args);
+    await copyTenantContent(...args);
+    await copyTenantDiscussions(...args);
+    await copyTenantGroupsAndFollowers(...args);
+    await copyTenantAuthenticationSettings(...args);
+    await copyTenantInvitations(...args);
+    await copyTenantInvitations(...args);
 };
 
 const init = async function() {
@@ -156,10 +196,8 @@ const init = async function() {
         let contentTypes = ["c", "f", "u", "g", "d"];
         // TODO change here: remove next line, which removes the document type
         contentTypes = ["c", "f", "u", "g"];
-        await rsync.transferFiles(source, target, contentTypes);
-        await rsync.transferAssets(source, target);
-
-        // TODO: rsync for assets
+        // await rsync.transferFiles(source, target, contentTypes);
+        // await rsync.transferAssets(source, target);
 
         logger.info(`${chalk.green(`✓`)}  Exiting.`);
     } catch (error) {

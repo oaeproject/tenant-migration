@@ -24,11 +24,20 @@ const clientOptions = {
     prepare: true
 };
 
-const copyTenantTable = async function(source, destination) {
-    const query = `select * from "Tenant" where "alias" = ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT into "Tenant" ("alias", "active", "countryCode", "displayName", "emailDomains", "host") VALUES (?, ?, ?, ?, ?, ?)`;
+const copyTenant = async function(source, destination) {
+    const query = `
+      SELECT *
+      FROM "Tenant"
+      WHERE "alias" = ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `INSERT into "Tenant" (
+      "alias",
+      "active",
+      "countryCode",
+      "displayName",
+      "emailDomains",
+      "host")
+      VALUES (?, ?, ?, ?, ?, ?)`;
 
     let fetchedRows = await fetchTenants(source, query);
     await insertTenants(destination, fetchedRows, insertQuery);
@@ -40,7 +49,6 @@ const insertTenants = async function(target, data, insertQuery) {
     if (_.isEmpty(data.rows)) {
         return;
     }
-
     await (async (targetClient, rows) => {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -65,18 +73,6 @@ const fetchTenants = async function(target, query) {
         `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
     );
     return result;
-};
-
-const copyTenantConfig = async function(source, destination) {
-    const query = `SELECT * FROM "Config" WHERE "tenantAlias" = ? LIMIT ${
-        clientOptions.fetchSize
-    }`;
-    const insertQuery = `INSERT INTO "Config" ("tenantAlias", "configKey", value) VALUES (?, ?, ?)`;
-
-    let fetchedRows = await fetchConfig(source, query);
-    await insertConfig(destination, fetchedRows, insertQuery);
-    let insertedRows = await fetchConfig(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 const fetchConfig = async function(target, query) {
@@ -106,7 +102,26 @@ const insertConfig = async function(target, result, insertQuery) {
     })(target.client, result.rows);
 };
 
+const copyTenantConfig = async function(source, destination) {
+    const query = `
+      SELECT *
+      FROM "Config"
+      WHERE "tenantAlias" = ?
+      LIMIT ${clientOptions.fetchSize}`;
+    const insertQuery = `
+      INSERT INTO "Config" (
+      "tenantAlias",
+      "configKey",
+      value)
+      VALUES (?, ?, ?)`;
+
+    let fetchedRows = await fetchConfig(source, query);
+    await insertConfig(destination, fetchedRows, insertQuery);
+    let insertedRows = await fetchConfig(destination, query);
+    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+};
+
 module.exports = {
-    copyTenantTable,
+    copyTenant,
     copyTenantConfig
 };
