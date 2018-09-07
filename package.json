@@ -1,0 +1,34 @@
+{
+  "name": "tenant-migration",
+  "version": "0.0.1",
+  "description": "This is a repo containing a program used to migrate a tenant's data from one OAE instance to another",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oaeproject/tenant-migration.git"
+  },
+  "keywords": [
+    "migration",
+    "oae",
+    "tenant"
+  ],
+  "author": {
+    "name": "The Apereo Foundation",
+    "email": "oae@apereo.org"
+  },
+  "license": "ECL-2.0",
+  "bugs": {
+    "url": "https://github.com/oaeproject/tenant-migration/issues"
+  },
+  "homepage": "http://www.oaeproject.org",
+  "dependencies": {
+    "chalk": "latest",
+    "rsync": "latest",
+    "underscore": "latest",
+    "winston": "latest",
+    "cassandra-driver": "latest"
+  }
+}
