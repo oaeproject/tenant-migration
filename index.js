@@ -190,11 +190,9 @@ const init = async function() {
     await runDatabaseCopy(source, target);
 
     // Rsync the files
-    let contentTypes = ["c", "f", "u", "g", "d"];
-    // TODO change here: remove next line, which removes the document type
-    contentTypes = ["c", "f", "u", "g"];
-    // await rsync.transferFiles(source, target, contentTypes);
-    // await rsync.transferAssets(source, target);
+    let contentTypes = ["c", "f", "u", "g"];
+    await rsync.transferFiles(source, target, contentTypes);
+    await rsync.transferAssets(source, target);
 
     logger.info(`${chalk.green(`✓`)}  Exiting.`);
   } catch (error) {
