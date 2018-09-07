@@ -1,15 +1,15 @@
 {
   "database": {
     "keyspace": "oae",
-    "host": "localhost",
+    "host": "aspiredor.local",
     "timeout": 6000,
     "tenantAlias": "apereo",
     "strategyClass": "SimpleStrategy",
-    "replication": 3
+    "replication": 1
   },
   "files": {
-    "host": "monitor.aws.oaeproject.org",
-    "user": "root",
-    "path": "/shared/"
+    "host": "aspiredor.local",
+    "user": "miguel",
+    "path": "/home/miguel/Work"
   }
 }

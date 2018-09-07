@@ -69,25 +69,25 @@ const {
   copyAuthzInvitationsTokenByEmail
 } = require("./invitations/dao");
 
+const SOURCE_CONFIG_FILE = "source.json";
+const DESTINATION_CONFIG_FILE = "destination.json";
+
 new Store();
 Store.init();
 
-let fileContents = fs.readFileSync(path.join(__dirname, "source.json"));
-const { sourceDatabase, sourceFileHost } = JSON.parse(fileContents);
-
-fileContents = fs.readFileSync(path.join(__dirname, "target.json"));
-const { targetDatabase, targetFileHost } = JSON.parse(fileContents);
-
 const makeSureTablesExistOnTarget = async function(
   targetClient,
-  createAllTables
+  createTablesStatements
 ) {
   const allPromises = [];
-  createAllTables.forEach(eachCreateStatement => {
+  for (let i = 0; i < createTablesStatements.length; i++) {
+    let eachCreateTableStatement = createTablesStatements[i];
     allPromises.push(
-      Promise.resolve(targetClient.execute(eachCreateStatement.query))
+      new Promise(resolve => {
+        resolve(targetClient.execute(eachCreateTableStatement.query));
+      })
     );
-  });
+  }
   logger.info(`${chalk.green(`✓`)}  Creating tables...\n`);
   await Promise.all(allPromises);
 };
@@ -170,29 +170,35 @@ const runDatabaseCopy = async function(...args) {
   await copyTenantInvitations(...args);
 };
 
+const parseConfiguration = function(filename) {
+  let fileContents = fs.readFileSync(path.join(__dirname, filename));
+  const { database, files } = JSON.parse(fileContents);
+  return {
+    database,
+    files
+  };
+};
+
 const init = async function() {
   try {
-    const sourceClient = await initConnection(sourceDatabase);
-    let source = {
-      database: sourceDatabase,
-      client: sourceClient,
-      fileHost: sourceFileHost
-    };
+    let source = parseConfiguration(SOURCE_CONFIG_FILE);
+    const sourceConnection = await initConnection(source.database);
+    source.client = sourceConnection;
 
-    const targetClient = await initConnection(targetDatabase);
-    let target = {
-      database: targetDatabase,
-      client: targetClient,
-      fileHost: targetFileHost
-    };
+    let destination = parseConfiguration(DESTINATION_CONFIG_FILE);
+    const destinationConnection = await initConnection(destination.database);
+    destination.client = destinationConnection;
 
-    await makeSureTablesExistOnTarget(targetClient, createSchemaQueries);
-    await runDatabaseCopy(source, target);
+    await makeSureTablesExistOnTarget(
+      destinationConnection,
+      createSchemaQueries
+    );
+    await runDatabaseCopy(source, destination);
 
     // Rsync the files
     let contentTypes = ["c", "f", "u", "g"];
-    await rsync.transferFiles(source, target, contentTypes);
-    await rsync.transferAssets(source, target);
+    // await rsync.transferFiles(source, target, contentTypes);
+    // await rsync.transferAssets(source, target);
 
     logger.info(`${chalk.green(`✓`)}  Exiting.`);
   } catch (error) {
