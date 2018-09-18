@@ -21,62 +21,64 @@ const { Store } = require("../store");
 const util = require("../util");
 
 const clientOptions = {
-    fetchSize: 999999,
-    prepare: true
+  fetchSize: 999999,
+  prepare: true
 };
 
-const copyUsersGroupVisits = async function(source, target) {
-    const query = `
+const insertUserGroupVisits = async function(target, data, insertQuery) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await targetClient.execute(
+        insertQuery,
+        [row.userId, row.groupId, row.latestVisit],
+        clientOptions
+      );
+    }
+  })(target.client, data.rows);
+};
+
+const fetchUserGroupVisits = async function(target, query) {
+  let result = await target.client.execute(
+    query,
+    [Store.getAttribute("tenantPrincipals")],
+    clientOptions
+  );
+
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } UsersGroupVisits rows...`
+  );
+
+  return result;
+};
+
+const copyUsersGroupVisits = async function(source, destination) {
+  const query = `
       SELECT *
       FROM "UsersGroupVisits"
       WHERE "userId"
       IN ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "UsersGroupVisits" (
           "userId",
           "groupId",
           "latestVisit")
           VALUES (?, ?, ?)`;
 
-    let result = await source.client.execute(
-        query,
-        [Store.getAttribute("tenantPrincipals")],
-        clientOptions
-    );
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
-        } UsersGroupVisits rows...`
-    );
-
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-
-            await targetClient.execute(
-                insertQuery,
-                [row.userId, row.groupId, row.latestVisit],
-                clientOptions
-            );
-        }
-    }
-    await insertAll(target.client, result.rows);
-
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [Store.getAttribute("tenantPrincipals")],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+  let fetchedRows = await fetchUserGroupVisits(source, query);
+  await insertUserGroupVisits(destination, fetchedRows, insertQuery);
+  let insertedRows = await fetchUserGroupVisits(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 module.exports = {
-    copyUsersGroupVisits
+  copyUsersGroupVisits
 };
