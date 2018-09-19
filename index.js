@@ -116,8 +116,8 @@ const runDatabaseCopy = async function(...args) {
   }
 
   async function copyTenantContent(...args) {
-    copyContent(...args);
-    copyEtherpadContent(...args);
+    await copyContent(...args);
+    await copyEtherpadContent(...args);
     await copyRevisionByContent(...args);
     await copyRevisions(...args);
   }
