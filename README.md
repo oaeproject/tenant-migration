@@ -86,3 +86,10 @@ error: ResponseError: unconfigured columnfamily Discussions # <- or maybe some o
 ```
 
 This happens because the script tries to execute before Cassandra has had the time to create the tables. If this happens, just run it again (the tables will have been created by then).
+
+## Reference links
+
+The complex part is the one regarding etherpad data transfer, mostly because it's stored in a key-value format in Cassandra. Here are some links regarding how etherpad works:
+
+- [HTTP API](https://github.com/ether/etherpad-lite/wiki/HTTP-API)
+- [Etherpad docs](http://etherpad.org/doc/v1.5.6/#index_about_this_documentation)
