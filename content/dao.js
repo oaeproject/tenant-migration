@@ -470,7 +470,7 @@ const copyEtherpadContent = async function(source, target) {
             padsToCopy.length
           } Etherpad pad rows...`
         );
-        // await insertAll(target.client, padsToCopy);
+        await insertAll(target.client, padsToCopy);
 
         /*
                 allRows = _.union(
@@ -623,6 +623,20 @@ const copyEtherpadContent = async function(source, target) {
         if (_.contains(allEtherpadPadIds, eachPadId)) {
           // allPads.push({ key: row.key, data: row.data });
           client.hset(ALL_PADS, row.key, row.data);
+        }
+
+        // experimental
+        let eachPadContentId = eachPadId.split("$")[1];
+        if (eachPadContentId) {
+          eachPadContentId = eachPadContentId.split("_").join(":");
+        }
+        if (_.contains(allMovedResources, eachPadContentId)) {
+          // we found a pad that belongs to another tenant but should be copied all the same (has at least one principal managing it)
+          counter++;
+          client.hset(ALL_PADS, row.key, row.data);
+
+          // debug
+          //   console.log("This pad is a moved resource -> " + eachPadId);
         }
       } else if (row.key.startsWith("group:")) {
         let eachGoupId = row.key.split(":")[1];
