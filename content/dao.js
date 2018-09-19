@@ -30,114 +30,6 @@ const clientOptions = {
   prepare: true
 };
 
-const copyAllContentTheSlowWay = async function(source, target) {
-  const query = `
-      SELECT *
-      FROM "Content"
-      WHERE "tenantAlias" = ?`;
-  const insertQuery = `
-      INSERT INTO "Content" (
-        "contentId",
-        created,
-        "createdBy",
-        description,
-        "displayName",
-        "etherpadGroupId",
-        "etherpadPadId",
-        filename,
-        "largeUri",
-        "lastModified",
-        "latestRevisionId",
-        link,
-        "mediumUri",
-        mime,
-        previews,
-        "resourceSubType",
-        size,
-        "smallUri",
-        status,
-        "tenantAlias",
-        "thumbnailUri",
-        uri,
-        visibility,
-        "wideUri")
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  let allRows = [];
-
-  function doAllTheThings() {
-    const com = source.client.stream(query, [source.database.tenantAlias]);
-    const p = new Promise((resolve, reject) => {
-      com.on("end", async () => {
-        let allContentIds = _.pluck(allRows, "contentId");
-        Store.setAttribute("allContentIds", allContentIds);
-        Store.setAttribute("allTenancyContents", allRows);
-
-        logger.info(
-          `${chalk.green(`✓`)}  Fetched ${allRows.length} Content rows...`
-        );
-        if (_.isEmpty(allRows)) {
-          return;
-        }
-        await insertAll(target.client, allRows);
-        resolve(allRows);
-      });
-      com.on("error", reject);
-    });
-    p.on = function() {
-      com.on.apply(com, arguments);
-      return p;
-    };
-    return p;
-  }
-
-  async function insertAll(targetClient, rows) {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-
-      await targetClient.execute(
-        insertQuery,
-        [
-          row.contentId,
-          row.created,
-          row.createdBy,
-          row.description,
-          row.displayName,
-          row.etherpadGroupId,
-          row.etherpadPadId,
-          row.filename,
-          row.largeUri,
-          row.lastModified,
-          row.latestRevisionId,
-          row.link,
-          row.mediumUri,
-          row.mime,
-          row.previews,
-          row.resourceSubType,
-          row.size,
-          row.smallUri,
-          row.status,
-          row.tenantAlias,
-          row.thumbnailUri,
-          row.uri,
-          row.visibility,
-          row.wideUri
-        ],
-        clientOptions
-      );
-    }
-  }
-
-  await doAllTheThings().on("readable", async function() {
-    // 'readable' is emitted as soon a row is received and parsed
-    let row;
-    while ((row = this.read())) {
-      if (row.tenantAlias && row.tenantAlias === source.database.tenantAlias) {
-        allRows.push(row);
-      }
-    }
-  });
-};
-
 const insertAllContent = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
@@ -426,87 +318,6 @@ const copyEtherpadContent = async function(source, target) {
   let readonly2pads = [];
   let pad2readonlys = [];
 
-  function doAllTheThings() {
-    const com = source.client.stream(query);
-    const p = new Promise((resolve, reject) => {
-      com.on("end", async () => {
-        logger.info(
-          `${chalk.green(`✓`)}  Filtered ${counter} Etherpad rows...`
-        );
-
-        let authorsToCopy = await filterAuthors(allAuthorMappings);
-        logger.info(
-          `${chalk.green(`✓`)}  Inserting ${
-            authorsToCopy.length
-          } Etherpad globalAuthor rows...`
-        );
-        await insertAll(target.client, authorsToCopy);
-
-        let groupsToCopy = await filterGroups(allGroupMappings);
-        logger.info(
-          `${chalk.green(`✓`)}  Inserting ${
-            groupsToCopy.length
-          } Etherpad group rows...`
-        );
-        await insertAll(target.client, groupsToCopy);
-
-        logger.info(
-          `${chalk.green(`✓`)}  Inserting ${
-            allGroupMappings.length
-          } Etherpad mapper2group rows...`
-        );
-        await insertAll(target.client, allGroupMappings);
-
-        logger.info(
-          `${chalk.green(`✓`)}  Inserting ${
-            allAuthorMappings.length
-          } Etherpad mapper2author rows...`
-        );
-        await insertAll(target.client, allAuthorMappings);
-
-        let padsToCopy = await filterPads();
-        logger.info(
-          `${chalk.green(`✓`)}  Inserting ${
-            padsToCopy.length
-          } Etherpad pad rows...`
-        );
-        await insertAll(target.client, padsToCopy);
-
-        /*
-                allRows = _.union(
-                    allAuthorMappings,
-                    allGroupMappings,
-                    padsToCopy,
-                    authorsToCopy,
-                    groupsToCopy
-
-                    // author2sessions,
-                    // group2sessions,
-
-                    // ueberdbs,
-                    // token2authors,
-                    // pad2readonlys,
-                    // readonly2pads
-                );
-
-                if (_.isEmpty(allRows)) {
-                    // return;
-                    resolve([]);
-                }
-            */
-
-        // util.compareResults(allRows.length, counter);
-        resolve(allRows);
-      });
-      com.on("error", reject);
-    });
-    p.on = function() {
-      com.on.apply(com, arguments);
-      return p;
-    };
-    return p;
-  }
-
   async function filterAuthors(allAuthorMappings) {
     let mappedAuthorsKeys = _.map(allAuthorMappings, eachAuthorMapping => {
       return `globalAuthor:${eachAuthorMapping.data.slice(1, -1)}`;
@@ -591,7 +402,7 @@ const copyEtherpadContent = async function(source, target) {
     return !!a && a.constructor === Array;
   };
 
-  async function insertAll(targetClient, rows) {
+  async function insertRows(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -603,7 +414,7 @@ const copyEtherpadContent = async function(source, target) {
     }
   }
 
-  return doAllTheThings().on("readable", function() {
+  const filterRows = function() {
     let row;
     while ((row = this.read())) {
       counter++;
@@ -669,7 +480,87 @@ const copyEtherpadContent = async function(source, target) {
             }
             */
     }
-  });
+  };
+
+  const afterQuery = async function() {
+    logger.info(`${chalk.green(`✓`)}  Filtered ${counter} Etherpad rows...`);
+
+    let authorsToCopy = await filterAuthors(allAuthorMappings);
+    logger.info(
+      `${chalk.green(`✓`)}  Inserting ${
+        authorsToCopy.length
+      } Etherpad globalAuthor rows...`
+    );
+    await insertRows(target.client, authorsToCopy);
+
+    let groupsToCopy = await filterGroups(allGroupMappings);
+    logger.info(
+      `${chalk.green(`✓`)}  Inserting ${
+        groupsToCopy.length
+      } Etherpad group rows...`
+    );
+    await insertRows(target.client, groupsToCopy);
+
+    logger.info(
+      `${chalk.green(`✓`)}  Inserting ${
+        allGroupMappings.length
+      } Etherpad mapper2group rows...`
+    );
+    await insertRows(target.client, allGroupMappings);
+
+    logger.info(
+      `${chalk.green(`✓`)}  Inserting ${
+        allAuthorMappings.length
+      } Etherpad mapper2author rows...`
+    );
+    await insertRows(target.client, allAuthorMappings);
+
+    let padsToCopy = await filterPads();
+    logger.info(
+      `${chalk.green(`✓`)}  Inserting ${padsToCopy.length} Etherpad pad rows...`
+    );
+    await insertRows(target.client, padsToCopy);
+
+    /*
+                allRows = _.union(
+                    allAuthorMappings,
+                    allGroupMappings,
+                    padsToCopy,
+                    authorsToCopy,
+                    groupsToCopy
+
+                    // author2sessions,
+                    // group2sessions,
+
+                    // ueberdbs,
+                    // token2authors,
+                    // pad2readonlys,
+                    // readonly2pads
+                );
+
+                if (_.isEmpty(allRows)) {
+                    // return;
+                    resolve([]);
+                }
+            */
+  };
+
+  function streamRows() {
+    const com = source.client.stream(query);
+    const p = new Promise((resolve, reject) => {
+      com.on("end", async () => {
+        await afterQuery();
+        resolve();
+      });
+      com.on("error", reject);
+    });
+    p.on = function() {
+      com.on.apply(com, arguments);
+      return p;
+    };
+    return p;
+  }
+  return streamRows().on("readable", filterRows);
 };
 
 module.exports = {

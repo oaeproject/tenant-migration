@@ -68,10 +68,10 @@ const copyUsersGroupVisits = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "UsersGroupVisits" (
-          "userId",
-          "groupId",
-          "latestVisit")
-          VALUES (?, ?, ?)`;
+      "userId",
+      "groupId",
+      "latestVisit")
+      VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchUserGroupVisits(source, query);
   await insertUserGroupVisits(destination, fetchedRows, insertQuery);

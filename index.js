@@ -161,6 +161,7 @@ const runDatabaseCopy = async function(...args) {
   }
 
   await copyTenantDataAndConfig(...args);
+  await copyTenantFolders(...args);
   await copyTenantPrincipals(...args);
   await copyTenantResources(...args);
   await copyTenantContent(...args);

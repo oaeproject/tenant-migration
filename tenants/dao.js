@@ -20,17 +20,17 @@ const logger = require("../logger");
 const util = require("../util");
 
 const clientOptions = {
-    fetchSize: 999999,
-    prepare: true
+  fetchSize: 999999,
+  prepare: true
 };
 
 const copyTenant = async function(source, destination) {
-    const query = `
+  const query = `
       SELECT *
       FROM "Tenant"
       WHERE "alias" = ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `INSERT into "Tenant" (
+  const insertQuery = `INSERT into "Tenant" (
       "alias",
       "active",
       "countryCode",
@@ -46,69 +46,69 @@ const copyTenant = async function(source, destination) {
 };
 
 const insertTenants = async function(target, data, insertQuery) {
-    if (_.isEmpty(data.rows)) {
-        return;
-    }
-    await (async (targetClient, rows) => {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async (targetClient, rows) => {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            await targetClient.execute(insertQuery, [
-                row.alias,
-                row.active,
-                row.countryCode,
-                row.displayName,
-                row.emailDomains,
-                row.host
-            ]);
-        }
-    })(target.client, data.rows);
+      await targetClient.execute(insertQuery, [
+        row.alias,
+        row.active,
+        row.countryCode,
+        row.displayName,
+        row.emailDomains,
+        row.host
+      ]);
+    }
+  })(target.client, data.rows);
 };
 
 const fetchTenants = async function(target, query) {
-    let result = await target.client.execute(query, [
-        target.database.tenantAlias
-    ]);
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
-    );
-    return result;
+  let result = await target.client.execute(query, [
+    target.database.tenantAlias
+  ]);
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
+  );
+  return result;
 };
 
 const fetchConfig = async function(target, query) {
-    let result = await target.client.execute(query, [
-        target.database.tenantAlias
-    ]);
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
-    );
-    return result;
+  let result = await target.client.execute(query, [
+    target.database.tenantAlias
+  ]);
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
+  );
+  return result;
 };
 
 const insertConfig = async function(target, result, insertQuery) {
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await (async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+  if (_.isEmpty(result.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            await targetClient.execute(insertQuery, [
-                row.tenantAlias,
-                row.configKey,
-                row.value
-            ]);
-        }
-    })(target.client, result.rows);
+      await targetClient.execute(insertQuery, [
+        row.tenantAlias,
+        row.configKey,
+        row.value
+      ]);
+    }
+  })(target.client, result.rows);
 };
 
 const copyTenantConfig = async function(source, destination) {
-    const query = `
+  const query = `
       SELECT *
       FROM "Config"
       WHERE "tenantAlias" = ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "Config" (
       "tenantAlias",
       "configKey",
@@ -122,6 +122,6 @@ const copyTenantConfig = async function(source, destination) {
 };
 
 module.exports = {
-    copyTenant,
-    copyTenantConfig
+  copyTenant,
+  copyTenantConfig
 };

@@ -21,69 +21,63 @@ const { Store } = require("../store");
 const util = require("../util");
 
 const clientOptions = {
-    fetchSize: 999999,
-    prepare: true
+  fetchSize: 999999,
+  prepare: true
 };
 
-const copyDiscussions = async function(source, target) {
-    const query = `
+const insertDiscussions = async function(target, data, insertQuery) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await targetClient.execute(
+        insertQuery,
+        [
+          row.id,
+          row.created,
+          row.createdBy,
+          row.description,
+          row.displayName,
+          row.lastModified,
+          row.tenantAlias,
+          row.visibility
+        ],
+        clientOptions
+      );
+    }
+  })(target.client, data.rows);
+};
+
+const fetchDiscussions = async function(target, query) {
+  let result = await target.client.execute(
+    query,
+    [target.database.tenantAlias],
+    clientOptions
+  );
+
+  let discussionsFromThisTenancyAlone = _.pluck(result.rows, "id");
+  Store.setAttribute(
+    "discussionsFromThisTenancyAlone",
+    _.uniq(discussionsFromThisTenancyAlone)
+  );
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Discussions rows...`
+  );
+  return result;
+};
+
+const copyDiscussions = async function(source, destination) {
+  const query = `
       SELECT *
       FROM "Discussions"
       WHERE "tenantAlias" = ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "Discussions" (
-          id,
-          created,
-          "createdBy",
-          description,
-          "displayName",
-          "lastModified",
-          "tenantAlias",
-          visibility)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-
-    let result = await source.client.execute(
-        query,
-        [source.database.tenantAlias],
-        clientOptions
-    );
-    let discussionsFromThisTenancyAlone = _.pluck(result.rows, "id");
-    Store.setAttribute(
-        "discussionsFromThisTenancyAlone",
-        _.uniq(discussionsFromThisTenancyAlone)
-    );
-
-    // Query "Discussions" - This is very very inadequate but we can't filter it!
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-
-            await targetClient.execute(
-                insertQuery,
-                [
-                    row.id,
-                    row.created,
-                    row.createdBy,
-                    row.description,
-                    row.displayName,
-                    row.lastModified,
-                    row.tenantAlias,
-                    row.visibility
-                ],
-                clientOptions
-            );
-        }
-    }
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Discussions rows...`
-    );
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await insertAll(target.client, result.rows);
-
     const queryResultOnSource = result;
     result = await target.client.execute(
         query,
@@ -91,232 +85,267 @@ const copyDiscussions = async function(source, target) {
         clientOptions
     );
     util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+      id,
+      created,
+      "createdBy",
+      description,
+      "displayName",
+      "lastModified",
+      "tenantAlias",
+      visibility)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  let fetchedRows = await fetchDiscussions(source, query);
+  await insertDiscussions(destination, fetchedRows, insertQuery);
 };
 
-const copyMessageBoxMessages = async function(source, target) {
-    const query = `
+const copyMessageBoxMessages = async function(source, destination) {
+  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching MessageBoxMessages rows...\n`));
+    return [];
+  }
+
+  const query = `
       SELECT *
       FROM "MessageBoxMessages"
       WHERE "messageBoxId"
       IN ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "MessageBoxMessages" (
-          "messageBoxId",
-          "threadKey",
-          value)
-          VALUES (?, ?, ?)`;
-    let counter = 0;
-    let allRows = [];
-    let threadKeysFromThisTenancyAlone = [];
+      "messageBoxId",
+      "threadKey",
+      value)
+      VALUES (?, ?, ?)`;
+  let allRows = [];
+  let threadKeysFromThisTenancyAlone = [];
 
-    if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-        logger.info(
-            chalk.cyan(`✗  Skipped fetching MessageBoxMessages rows...\n`)
-        );
-        return [];
+  const afterQuery = async function() {
+    Store.setAttribute(
+      "threadKeysFromThisTenancyAlone",
+      _.uniq(threadKeysFromThisTenancyAlone)
+    );
+    logger.info(
+      `${chalk.green(`✓`)}  Fetched ${
+        allRows.length
+      } MessageBoxMessages rows...`
+    );
+
+    if (_.isEmpty(allRows)) {
+      return;
     }
+    await insertRows(destination.client, allRows);
+  };
 
-    // Lets query discussions and all messages
-    function doAllTheThings() {
-        const com = source.client.stream(query, [
-            _.union(
-                Store.getAttribute("allContentIds"),
-                Store.getAttribute("discussionsFromThisTenancyAlone"),
-                Store.getAttribute("allResourceIds")
-            )
-        ]);
-        const p = new Promise((resolve, reject) => {
-            com.on("end", async () => {
-                Store.setAttribute(
-                    "threadKeysFromThisTenancyAlone",
-                    _.uniq(threadKeysFromThisTenancyAlone)
-                );
-                logger.info(
-                    `${chalk.green(`✓`)}  Fetched ${
-                        allRows.length
-                    } MessageBoxMessages rows...`
-                );
-                if (_.isEmpty(allRows)) {
-                    return;
-                }
-                await insertAll(target.client, allRows);
-                util.compareResults(allRows.length, counter);
-                resolve(allRows);
-            });
-            com.on("error", reject);
+  const insertRows = async function(target, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await target.execute(
+        insertQuery,
+        [row.messageBoxId, row.threadKey, row.value],
+        clientOptions
+      );
+    }
+  };
+
+  const filterRows = function() {
+    let row;
+    while ((row = this.read())) {
+      if (row.threadKey) {
+        allRows.push(row);
+        threadKeysFromThisTenancyAlone.push({
+          messageBoxId: row.messageBoxId,
+          threadKey: _.last(row.threadKey.split("#"))
         });
-        p.on = function() {
-            com.on.apply(com, arguments);
-            return p;
-        };
-        return p;
+      }
     }
+  };
 
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            counter++;
-
-            await targetClient.execute(
-                insertQuery,
-                [row.messageBoxId, row.threadKey, row.value],
-                clientOptions
-            );
-        }
-    }
-    return doAllTheThings().on("readable", function() {
-        // 'readable' is emitted as soon a row is received and parsed
-        let row;
-        while ((row = this.read())) {
-            if (row.threadKey) {
-                allRows.push(row);
-                threadKeysFromThisTenancyAlone.push({
-                    messageBoxId: row.messageBoxId,
-                    threadKey: _.last(row.threadKey.split("#"))
-                });
-            }
-        }
+  function streamRows() {
+    const com = source.client.stream(query, [
+      _.union(
+        Store.getAttribute("allContentIds"),
+        Store.getAttribute("discussionsFromThisTenancyAlone"),
+        Store.getAttribute("allResourceIds")
+      )
+    ]);
+    const promise = new Promise((resolve, reject) => {
+      com.on("end", async () => {
+        await afterQuery();
+        resolve();
+      });
+      com.on("error", reject);
     });
+    promise.on = function() {
+      com.on.apply(com, arguments);
+      return promise;
+    };
+    return promise;
+  }
+  return streamRows().on("readable", filterRows);
 };
 
-const copyMessages = async function(source, target) {
-    const query = `
+const copyMessages = async function(source, destination) {
+  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching Messages rows...\n`));
+    return [];
+  }
+
+  const query = `
       SELECT *
       FROM "Messages"
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "Messages" (
-          id,
-          body,
-          "createdBy",
-          deleted,
-          "threadKey")
-          VALUES (?, ?, ?, ?, ?)`;
-    let counter = 0;
-    let allRows = [];
-    let allTenantMessages = [];
+      id,
+      body,
+      "createdBy",
+      deleted,
+      "threadKey")
+      VALUES (?, ?, ?, ?, ?)`;
+  let allRows = [];
+  let allTenantMessages = [];
 
-    if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-        logger.info(chalk.cyan(`✗  Skipped fetching Messages rows...\n`));
-        return [];
+  const afterQuery = async function() {
+    Store.setAttribute("allTenantMessages", _.uniq(allTenantMessages));
+    logger.info(
+      `${chalk.green(`✓`)}  Fetched ${allRows.length} Messages rows...`
+    );
+
+    if (_.isEmpty(allRows)) {
+      return;
     }
-    // Lets query discussions and all messages
-    function doAllTheThings() {
-        const com = source.client.stream(query);
-        const p = new Promise((resolve, reject) => {
-            com.on("end", async () => {
-                Store.setAttribute(
-                    "allTenantMessages",
-                    _.uniq(allTenantMessages)
-                );
-                logger.info(
-                    `${chalk.green(`✓`)}  Fetched ${
-                        allRows.length
-                    } Messages rows...`
-                );
+    await insertRows(destination.client, allRows);
+  };
 
-                if (_.isEmpty(allRows)) {
-                    return;
-                }
-                await insertAll(target.client, allRows);
-                util.compareResults(allRows.length, counter);
-                resolve(allRows);
-            });
-            com.on("error", reject);
-        });
-        p.on = function() {
-            com.on.apply(com, arguments);
-            return p;
-        };
-        return p;
+  const filterRows = function() {
+    let row;
+    while ((row = this.read())) {
+      if (row.id && row.id.split(":")[1] === source.database.tenantAlias) {
+        allRows.push(row);
+        allTenantMessages.push(row.id);
+      }
     }
+  };
 
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            counter++;
+  const insertRows = async function(target, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            await targetClient.execute(
-                insertQuery,
-                [row.id, row.body, row.createdBy, row.deleted, row.threadKey],
-                clientOptions
-            );
-        }
+      await target.execute(
+        insertQuery,
+        [row.id, row.body, row.createdBy, row.deleted, row.threadKey],
+        clientOptions
+      );
     }
+  };
 
-    return doAllTheThings().on("readable", function() {
-        // 'readable' is emitted as soon a row is received and parsed
-        let row;
-        while ((row = this.read())) {
-            if (
-                row.id &&
-                row.id.split(":")[1] === source.database.tenantAlias
-            ) {
-                allRows.push(row);
-                allTenantMessages.push(row.id);
-            }
-        }
+  function streamRows() {
+    const com = source.client.stream(query);
+    const p = new Promise((resolve, reject) => {
+      com.on("end", async () => {
+        await afterQuery();
+        resolve();
+      });
+      com.on("error", reject);
     });
+    p.on = function() {
+      com.on.apply(com, arguments);
+      return p;
+    };
+    return p;
+  }
+  return streamRows().on("readable", filterRows);
 };
 
-const copyMessageBoxMessagesDeleted = async function(source, target) {
-    // if (_.isEmpty(Store.getAttribute("discussionsFromThisTenancyAlone"))) {
-    if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-        logger.info(
-            chalk.cyan(
-                `✗  Skipped fetching MessageBoxMessagesDeleted rows...\n`
-            )
-        );
-        return [];
+const insertMessageBoxMessagesDeleted = async function(
+  target,
+  data,
+  insertQuery
+) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await targetClient.execute(
+        insertQuery,
+        [row.messageBoxId, row.createdTimestamp, row.value],
+        clientOptions
+      );
     }
-    // MessageBoxMessagesDeleted
-    const query = `
+  })(target.client, data.rows);
+};
+
+const fetchMessageBoxMessagesDeleted = async function(target, query) {
+  let discussionsAndContentIds = _.union(
+    Store.getAttribute("discussionsFromThisTenancyAlone"),
+    Store.getAttribute("allContentIds"),
+    Store.getAttribute("allResourceIds")
+  );
+
+  let result = await target.client.execute(
+    query,
+    [discussionsAndContentIds],
+    clientOptions
+  );
+
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } MessageBoxMessagesDeleted rows...`
+  );
+  return result;
+};
+
+const copyMessageBoxMessagesDeleted = async function(source, destination) {
+  // if (_.isEmpty(Store.getAttribute("discussionsFromThisTenancyAlone"))) {
+  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+    logger.info(
+      chalk.cyan(`✗  Skipped fetching MessageBoxMessagesDeleted rows...\n`)
+    );
+    return [];
+  }
+  const query = `
       SELECT *
       FROM "MessageBoxMessagesDeleted"
       WHERE "messageBoxId"
       IN ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "MessageBoxMessagesDeleted" (
-          "messageBoxId",
-          "createdTimestamp",
-          value)
-          VALUES (?, ? ,?)`;
+      "messageBoxId",
+      "createdTimestamp",
+      value)
+      VALUES (?, ? ,?)`;
 
-    let discussionsAndContentIds = _.union(
-        Store.getAttribute("discussionsFromThisTenancyAlone"),
-        Store.getAttribute("allContentIds"),
-        Store.getAttribute("allResourceIds")
-    );
-    let result = await source.client.execute(
-        query,
-        [discussionsAndContentIds],
+  let fetchedRows = await fetchMessageBoxMessagesDeleted(source, query);
+  await insertMessageBoxMessagesDeleted(destination, fetchedRows, insertQuery);
+};
+
+const insertMessageBoxRecentContributions = async function(
+  target,
+  data,
+  insertQuery
+) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await targetClient.execute(
+        insertQuery,
+        [row.messageBoxId, row.contributorId, row.value],
         clientOptions
-    );
-
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-
-            await targetClient.execute(
-                insertQuery,
-                [row.messageBoxId, row.createdTimestamp, row.value],
-                clientOptions
-            );
-        }
+      );
     }
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
-        } MessageBoxMessagesDeleted rows...`
-    );
-
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await insertAll(target.client, result.rows);
+  })(target.client, data.rows);
+};
 
     const queryResultOnSource = result;
     result = await target.client.execute(
@@ -325,66 +354,43 @@ const copyMessageBoxMessagesDeleted = async function(source, target) {
         clientOptions
     );
     util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+const fetchMessageBoxRecentContributions = async function(target, query) {
+  let discussionsAndContentIds = _.union(
+    Store.getAttribute("allContentIds"),
+    Store.getAttribute("discussionsFromThisTenancyAlone"),
+    Store.getAttribute("allResourceIds")
+  );
+
+  let result = await target.client.execute(
+    query,
+    [discussionsAndContentIds],
+    clientOptions
+  );
+
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } MessageBoxRecentContributions rows...`
+  );
+  return result;
 };
 
-const copyMessageBoxRecentContributions = async function(source, target) {
-    if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-        logger.info(
-            chalk.cyan(
-                `✗  Skipped fetching MessageBoxRecentContributions rows...\n`
-            )
-        );
-        return [];
-    }
-    // MessageBoxRecentContributions
-    const query = `
+const copyMessageBoxRecentContributions = async function(source, destination) {
+  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+    logger.info(
+      chalk.cyan(`✗  Skipped fetching MessageBoxRecentContributions rows...\n`)
+    );
+    return [];
+  }
+  // MessageBoxRecentContributions
+  const query = `
       SELECT *
       FROM "MessageBoxRecentContributions"
       WHERE "messageBoxId"
       IN ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "MessageBoxRecentContributions" (
-          "messageBoxId",
-          "contributorId",
-          value)
-          VALUES (?, ?, ?)`;
-
-    let discussionsAndContentIds = _.union(
-        Store.getAttribute("allContentIds"),
-        Store.getAttribute("discussionsFromThisTenancyAlone"),
-        Store.getAttribute("allResourceIds")
-    );
-
-    let result = await source.client.execute(
-        query,
-        [discussionsAndContentIds],
-        clientOptions
-    );
-
-    async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-
-            await targetClient.execute(
-                insertQuery,
-                [row.messageBoxId, row.contributorId, row.value],
-                clientOptions
-            );
-        }
-    }
-
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
-        } MessageBoxRecentContributions rows...`
-    );
-
-    if (_.isEmpty(result.rows)) {
-        return;
-    }
-    await insertAll(target.client, result.rows);
-
     const queryResultOnSource = result;
     result = await target.client.execute(
         query,
@@ -392,12 +398,23 @@ const copyMessageBoxRecentContributions = async function(source, target) {
         clientOptions
     );
     util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+      "messageBoxId",
+      "contributorId",
+      value)
+      VALUES (?, ?, ?)`;
+
+  let fetchedRows = await fetchMessageBoxRecentContributions(source, query);
+  await insertMessageBoxRecentContributions(
+    destination,
+    fetchedRows,
+    insertQuery
+  );
 };
 
 module.exports = {
-    copyMessages,
-    copyDiscussions,
-    copyMessageBoxMessages,
-    copyMessageBoxMessagesDeleted,
-    copyMessageBoxRecentContributions
+  copyMessages,
+  copyDiscussions,
+  copyMessageBoxMessages,
+  copyMessageBoxMessagesDeleted,
+  copyMessageBoxRecentContributions
 };

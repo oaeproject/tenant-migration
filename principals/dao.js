@@ -20,86 +20,86 @@ const { Store } = require("../store");
 const util = require("../util");
 
 const clientOptions = {
-    fetchSize: 999999,
-    prepare: true
+  fetchSize: 999999,
+  prepare: true
 };
 
 const fetchAllPrincipals = async function(target, query) {
-    let result = await target.client.execute(
-        query,
-        [target.database.tenantAlias],
-        clientOptions
-    );
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
-    );
+  let result = await target.client.execute(
+    query,
+    [target.database.tenantAlias],
+    clientOptions
+  );
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
+  );
 
-    // We'll need to know which principals are users or groups
-    let tenantPrincipals = [];
-    let tenantGroups = [];
-    let tenantUsers = [];
-    result.rows.forEach(row => {
-        tenantPrincipals.push(row.principalId);
-        if (row.principalId.startsWith("g")) {
-            tenantGroups.push(row.principalId);
-        } else if (row.principalId.startsWith("u")) {
-            tenantUsers.push(row.principalId);
-        }
-    });
-    Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
-    Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
-    Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
+  // We'll need to know which principals are users or groups
+  let tenantPrincipals = [];
+  let tenantGroups = [];
+  let tenantUsers = [];
+  result.rows.forEach(row => {
+    tenantPrincipals.push(row.principalId);
+    if (row.principalId.startsWith("g")) {
+      tenantGroups.push(row.principalId);
+    } else if (row.principalId.startsWith("u")) {
+      tenantUsers.push(row.principalId);
+    }
+  });
+  Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
+  Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
+  Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
 
-    return result;
+  return result;
 };
 
 const insertPrincipals = async function(target, data, insertQuery) {
-    if (_.isEmpty(data.rows)) {
-        return;
-    }
-    await (async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            await targetClient.execute(
-                insertQuery,
-                [
-                    row.principalId,
-                    row.acceptedTC,
-                    row.get("admin:global"),
-                    row.get("admin:tenant"),
-                    row.created,
-                    row.createdBy,
-                    row.deleted,
-                    row.description,
-                    row.displayName,
-                    row.email,
-                    row.emailPreference,
-                    row.joinable,
-                    row.largePictureUri,
-                    row.lastModified,
-                    row.locale,
-                    row.mediumPictureUri,
-                    row.notificationsLastRead,
-                    row.notificationsUnread,
-                    row.publicAlias,
-                    row.smallPictureUri,
-                    row.tenantAlias,
-                    row.visibility
-                ],
-                clientOptions
-            );
-        }
-    })(target.client, data.rows);
+      await targetClient.execute(
+        insertQuery,
+        [
+          row.principalId,
+          row.acceptedTC,
+          row.get("admin:global"),
+          row.get("admin:tenant"),
+          row.created,
+          row.createdBy,
+          row.deleted,
+          row.description,
+          row.displayName,
+          row.email,
+          row.emailPreference,
+          row.joinable,
+          row.largePictureUri,
+          row.lastModified,
+          row.locale,
+          row.mediumPictureUri,
+          row.notificationsLastRead,
+          row.notificationsUnread,
+          row.publicAlias,
+          row.smallPictureUri,
+          row.tenantAlias,
+          row.visibility
+        ],
+        clientOptions
+      );
+    }
+  })(target.client, data.rows);
 };
 
 const copyPrincipals = async function(source, destination) {
-    const query = `
+  const query = `
       SELECT *
       FROM "Principals"
       WHERE "tenantAlias" = ?
       LIMIT ${clientOptions.fetchSize}`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "Principals" (
       "principalId",
       "acceptedTC",
@@ -132,45 +132,45 @@ const copyPrincipals = async function(source, destination) {
 };
 
 const fetchPrincipalsByEmail = async function(target, query) {
-    let result = await target.client.execute(
-        query,
-        [Store.getAttribute("tenantPrincipals")],
-        clientOptions
-    );
-    logger.info(
-        `${chalk.green(`✓`)}  Fetched ${
-            result.rows.length
-        } PrincipalsByEmail rows...`
-    );
+  let result = await target.client.execute(
+    query,
+    [Store.getAttribute("tenantPrincipals")],
+    clientOptions
+  );
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } PrincipalsByEmail rows...`
+  );
 
-    return result;
+  return result;
 };
 
 const insertPrincipalsByEmail = async function(target, data, insertQuery) {
-    if (_.isEmpty(data.rows)) {
-        return;
-    }
-    await (async function insertAll(targetClient, rows) {
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-            await targetClient.execute(
-                insertQuery,
-                [row.email, row.principalId],
-                clientOptions
-            );
-        }
-    })(target.client, data.rows);
+      await targetClient.execute(
+        insertQuery,
+        [row.email, row.principalId],
+        clientOptions
+      );
+    }
+  })(target.client, data.rows);
 };
 
 const copyPrincipalsByEmail = async function(source, destination) {
-    const query = `
+  const query = `
       SELECT *
       FROM "PrincipalsByEmail"
       WHERE "principalId" IN ?
       LIMIT ${clientOptions.fetchSize}
       ALLOW FILTERING`;
-    const insertQuery = `
+  const insertQuery = `
       INSERT INTO "PrincipalsByEmail" (
         email,
         "principalId")
@@ -183,6 +183,6 @@ const copyPrincipalsByEmail = async function(source, destination) {
 };
 
 module.exports = {
-    copyPrincipals,
-    copyPrincipalsByEmail
+  copyPrincipals,
+  copyPrincipalsByEmail
 };

@@ -80,7 +80,46 @@ const copyAuthzInvitations = async function(source, destination) {
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
-const copyAuthzInvitationsResourceIdByEmail = async function(source, target) {
+const insertAuthzInvitationsResourceIdByEmail = async function(
+  target,
+  data,
+  insertQuery
+) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      await targetClient.execute(
+        insertQuery,
+        [row.email, row.resourceId],
+        clientOptions
+      );
+    }
+  })(target.client, data.rows);
+};
+
+const fetchAuthzInvitationsResourceIdByEmail = async function(target, query) {
+  let result = await target.client.execute(
+    query,
+    [Store.getAttribute("allInvitationEmails")],
+    clientOptions
+  );
+
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } AuthzInvitationsResourceIdByEmail rows found...`
+  );
+  return result;
+};
+
+const copyAuthzInvitationsResourceIdByEmail = async function(
+  source,
+  destination
+) {
   if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
     logger.info(
       chalk.cyan(
@@ -101,45 +140,54 @@ const copyAuthzInvitationsResourceIdByEmail = async function(source, target) {
           email,
           "resourceId")
           VALUES (?, ?)`;
-
-  let result = await source.client.execute(
-    query,
-    [Store.getAttribute("allInvitationEmails")],
-    clientOptions
+  let fetchedRows = await fetchAuthzInvitationsResourceIdByEmail(source, query);
+  await insertAuthzInvitationsResourceIdByEmail(
+    destination,
+    fetchedRows,
+    insertQuery
   );
+};
 
-  async function insertAll(targetClient, rows) {
+const insertAuthzInvitationsTokenByEmail = async function(
+  target,
+  data,
+  insertQuery
+) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
       await targetClient.execute(
         insertQuery,
-        [row.email, row.resourceId],
+        [row.email, row.token],
         clientOptions
       );
     }
-  }
-  logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } AuthzInvitationsResourceIdByEmail rows found...`
-  );
-  if (_.isEmpty(result.rows)) {
-    return;
-  }
+  })(target.client, data.rows);
+};
 
-  await insertAll(target.client, result.rows);
-
-  const queryResultOnSource = result;
-  result = await target.client.execute(
+const fetchAuthzInvitationsTokenByEmail = async function(target, query) {
+  let result = await target.client.execute(
     query,
     [Store.getAttribute("allInvitationEmails")],
     clientOptions
   );
-  util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+  let allInvitationTokens = _.pluck(result.rows, "token");
+  Store.setAttribute("allInvitationTokens", _.uniq(allInvitationTokens));
+
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } AuthzInvitationsTokenByEmail rows...`
+  );
+
+  return result;
 };
 
-const copyAuthzInvitationsTokenByEmail = async function(source, target) {
+const copyAuthzInvitationsTokenByEmail = async function(source, destination) {
   if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
     logger.info(
       chalk.cyan(`✗  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`)
@@ -164,39 +212,45 @@ const copyAuthzInvitationsTokenByEmail = async function(source, target) {
   );
   let allInvitationTokens = _.pluck(result.rows, "token");
   Store.setAttribute("allInvitationTokens", _.uniq(allInvitationTokens));
+};
 
-  async function insertAll(targetClient, rows) {
+const insertAuthzInvitationsEmailByToken = async function(
+  target,
+  data,
+  insertQuery
+) {
+  if (_.isEmpty(data.rows)) {
+    return;
+  }
+  await (async function insertAll(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
       await targetClient.execute(
         insertQuery,
-        [row.email, row.token],
+        [row.token, row.email],
         clientOptions
       );
     }
-  }
+  })(target.client, data.rows);
+};
+
+const fetchAuthzInvitationsEmailByToken = async function(target, query) {
+  let result = await target.client.execute(
+    query,
+    [Store.getAttribute("allInvitationTokens")],
+    clientOptions
+  );
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthzInvitationsTokenByEmail rows...`
+    } AuthzInvitationsEmailByToken rows...`
   );
-  if (_.isEmpty(result.rows)) {
-    return;
-  }
 
-  await insertAll(target.client, result.rows);
-
-  const queryResultOnSource = result;
-  result = await target.client.execute(
-    query,
-    [Store.getAttribute("allInvitationEmails")],
-    clientOptions
-  );
-  util.compareResults(queryResultOnSource.rows.length, result.rows.length);
+  return result;
 };
 
-const copyAuthzInvitationsEmailByToken = async function(source, target) {
+const copyAuthzInvitationsEmailByToken = async function(source, destination) {
   if (_.isEmpty(Store.getAttribute("allInvitationTokens"))) {
     logger.info(
       chalk.cyan(`✗  Skipped fetching AuthzInvitationsEmailByToken rows...\n`)
@@ -216,35 +270,6 @@ const copyAuthzInvitationsEmailByToken = async function(source, target) {
           email)
           VALUES (?, ?)`;
 
-  let result = await source.client.execute(
-    query,
-    [Store.getAttribute("allInvitationTokens")],
-    clientOptions
-  );
-
-  async function insertAll(targetClient, rows) {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-
-      await targetClient.execute(
-        insertQuery,
-        [row.token, row.email],
-        clientOptions
-      );
-    }
-  }
-
-  logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } AuthzInvitationsEmailByToken rows...`
-  );
-  if (_.isEmpty(result.rows)) {
-    return;
-  }
-  await insertAll(target.client, result.rows);
-
-  const queryResultOnSource = result;
   result = await target.client.execute(
     query,
     [Store.getAttribute("allInvitationTokens")],
