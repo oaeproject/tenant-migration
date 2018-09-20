@@ -51,13 +51,11 @@ const fetchAllAuthenticationUserLoginId = async function(target, query) {
     [Store.getAttribute("tenantPrincipals")],
     clientOptions
   );
-  let allLoginIds = _.pluck(result.rows, "loginId");
-  Store.setAttribute("allLoginIds", _.uniq(allLoginIds));
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthenticationUserLoginId rows...`
+    } AuthenticationUserLoginId rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -70,17 +68,22 @@ const copyAuthenticationUserLoginId = async function(source, destination) {
       IN ? limit ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "AuthenticationUserLoginId" (
-          "userId",
-          "loginId",
-          "value")
-          VALUES (?, ?, ?)`;
+      "userId",
+      "loginId",
+      "value")
+      VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchAllAuthenticationUserLoginId(source, query);
+  Store.setAttribute(
+    "allLoginIds",
+    _.uniq(_.pluck(fetchedRows.rows, "loginId"))
+  );
   await insertAllAuthenticationUserLoginId(
     destination,
     fetchedRows,
     insertQuery
   );
+
   let insertedRows = await fetchAllAuthenticationUserLoginId(
     destination,
     query
@@ -119,7 +122,7 @@ const fetchAllAuthenticationLoginId = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthenticationLoginId rows...`
+    } AuthenticationLoginId rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -140,14 +143,15 @@ const copyAuthenticationLoginId = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "AuthenticationLoginId" (
-          "loginId",
-          password,
-          secret,
-          "userId")
-          VALUES (?, ?, ?, ?)`;
+      "loginId",
+      password,
+      secret,
+      "userId")
+      VALUES (?, ?, ?, ?)`;
 
   let fetchedRows = await fetchAllAuthenticationLoginId(source, query);
   await insertAllAuthenticationLoginId(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllAuthenticationLoginId(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
@@ -176,7 +180,9 @@ const fetchAllOAuthClients = async function(target, query) {
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} OAuthClient rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } OAuthClient rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -196,14 +202,15 @@ const copyOAuthClients = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "OAuthClient" (
-          id,
-          "displayName",
-          secret,
-          "userId")
-          VALUES (?, ?, ?, ?)`;
+      id,
+      "displayName",
+      secret,
+      "userId")
+      VALUES (?, ?, ?, ?)`;
 
   let fetchedRows = await fetchAllOAuthClients(source, query);
   await insertAllOAuthClients(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllOAuthClients(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
@@ -231,13 +238,11 @@ const fetchAllOAuthClientsByUser = async function(target, query) {
     [Store.getAttribute("tenantUsers")],
     clientOptions
   );
-  let allOauthClientsIds = _.pluck(result.rows, "clientId");
-  Store.setAttribute("allOauthClientsIds", _.uniq(allOauthClientsIds));
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } OAuthClientsByUser rows...`
+    } OAuthClientsByUser rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -251,13 +256,18 @@ const copyOAuthClientsByUser = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "OAuthClientsByUser" (
-          "userId",
-          "clientId",
-          value)
-          VALUES (?, ?, ?)`;
+      "userId",
+      "clientId",
+      value)
+      VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchAllOAuthClientsByUser(source, query);
+  Store.setAttribute(
+    "allOauthClientsIds",
+    _.uniq(_.pluck(fetchedRows.rows, "clientId"))
+  );
   await insertAllOAuthClientsByUser(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllOAuthClientsByUser(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };

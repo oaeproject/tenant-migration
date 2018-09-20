@@ -43,27 +43,51 @@ const insertAuthzRoles = async function(target, data, insertQuery) {
 };
 
 const fetchAuthzRoles = async function(target, query) {
-  const _isManager = role => {
-    return role === "manager";
-  };
-
-  const _belongsToOtherTenant = resourceId => {
-    return resourceId.split(":")[1] !== target.database.tenantAlias;
-  };
-
   let result = await target.client.execute(
     query,
     [Store.getAttribute("tenantPrincipals")],
     clientOptions
   );
-  // experimental: lets filter resources so that only the tenant's own resources are stored
+  logger.info(
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } AuthzRoles rows from ${chalk.cyan(target.database.host)}`
+  );
+  return result;
+};
+
+const copyAuthzRoles = async function(source, destination) {
+  const _isManager = role => {
+    return role === "manager";
+  };
+
+  const _belongsToOtherTenant = resourceId => {
+    return resourceId.split(":")[1] !== source.database.tenantAlias;
+  };
+
+  const query = `
+      SELECT *
+      FROM "AuthzRoles"
+      WHERE "principalId"
+      IN ?
+      LIMIT ${clientOptions.fetchSize}`;
+  const insertQuery = `
+      INSERT INTO "AuthzRoles" (
+      "principalId",
+      "resourceId",
+      role)
+      VALUES (?, ?, ?)`;
+
+  let fetchedRows = await fetchAuthzRoles(source, query);
+  // Some resources from other tenants must be copied too
+  // in case at least one of the managers belongs to the tenant being moved
   let movedResources = [];
-  _.each(result.rows, eachRow => {
+  _.each(fetchedRows.rows, eachRow => {
     if (_belongsToOtherTenant(eachRow.resourceId) && _isManager(eachRow.role)) {
       let oldResourceId = eachRow.resourceId;
       eachRow.resourceId = [
         eachRow.resourceId.split(":")[0],
-        target.database.tenantAlias,
+        source.database.tenantAlias,
         eachRow.resourceId.split(":")[2]
       ].join(":");
 
@@ -74,37 +98,17 @@ const fetchAuthzRoles = async function(target, query) {
   Store.setAttribute("movedResources", movedResources);
 
   // lets move the tenancy of this resource in case it's a manager
-  let allResources = _.filter(result.rows, eachResource => {
+  let allResources = _.filter(fetchedRows.rows, eachResource => {
     return (
-      eachResource.resourceId.split(":")[1] === target.database.tenantAlias
+      eachResource.resourceId.split(":")[1] === source.database.tenantAlias
     );
   });
   allResourceIds = _.pluck(allResources, "resourceId");
   Store.setAttribute("allResourceIds", _.uniq(allResourceIds));
-  logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzRoles rows...`
-  );
-  return result;
-};
-
-const copyAuthzRoles = async function(source, destination) {
-  const query = `
-      SELECT *
-      FROM "AuthzRoles"
-      WHERE "principalId"
-      IN ?
-      LIMIT ${clientOptions.fetchSize}`;
-  const insertQuery = `
-      INSERT INTO "AuthzRoles" (
-    let insertedRows = await fetchAuthzRoles(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
-      "principalId",
-      "resourceId",
-      role)
-      VALUES (?, ?, ?)`;
-
-  let fetchedRows = await fetchAuthzRoles(source, query);
   await insertAuthzRoles(destination, fetchedRows, insertQuery);
+
+  let insertedRows = await fetchAuthzRoles(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 const insertAuthzMembers = async function(target, data, insertQuery) {
@@ -131,7 +135,9 @@ const fetchAuthzMembers = async function(target, query) {
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzMembers rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } AuthzMembers rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -146,8 +152,6 @@ const copyAuthzMembers = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize} ALLOW FILTERING`;
   const insertQuery = `
       INSERT INTO "AuthzMembers" (
-    let insertedRows = await fetchAuthzMembers(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
       "resourceId",
       "memberId",
       role)
@@ -155,6 +159,8 @@ const copyAuthzMembers = async function(source, destination) {
 
   let fetchedRows = await fetchAuthzMembers(source, query);
   await insertAuthzMembers(destination, fetchedRows, insertQuery);
+  let insertedRows = await fetchAuthzMembers(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 module.exports = {

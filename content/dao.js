@@ -80,12 +80,10 @@ const fetchAllContent = async function(target, query) {
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Content rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Content rows from ${chalk.cyan(target.database.host)}`
   );
-
-  let allContentIds = _.pluck(result.rows, "contentId");
-  Store.setAttribute("allContentIds", allContentIds);
-  Store.setAttribute("allTenancyContents", result.rows);
 
   return result;
 };
@@ -98,34 +96,37 @@ const copyContent = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "Content" (
-          "contentId",
-          created,
-          "createdBy",
-          description,
-          "displayName",
-          "etherpadGroupId",
-          "etherpadPadId",
-          filename,
-          "largeUri",
-          "lastModified",
-          "latestRevisionId",
-          link,
-          "mediumUri",
-          mime,
-          previews,
-          "resourceSubType",
-          size,
-          "smallUri",
-          status,
-          "tenantAlias",
-          "thumbnailUri",
-          uri,
-          visibility,
-          "wideUri")
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      "contentId",
+      created,
+      "createdBy",
+      description,
+      "displayName",
+      "etherpadGroupId",
+      "etherpadPadId",
+      filename,
+      "largeUri",
+      "lastModified",
+      "latestRevisionId",
+      link,
+      "mediumUri",
+      mime,
+      previews,
+      "resourceSubType",
+      size,
+      "smallUri",
+      status,
+      "tenantAlias",
+      "thumbnailUri",
+      uri,
+      visibility,
+      "wideUri")
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   let fetchedRows = await fetchAllContent(source, query);
+  Store.setAttribute("allTenancyContents", fetchedRows.rows);
+  Store.setAttribute("allContentIds", _.pluck(fetchedRows.rows, "contentId"));
   await insertAllContent(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllContent(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
@@ -153,13 +154,11 @@ const fetchAllRevisionByContent = async function(target, query) {
     [Store.getAttribute("allContentIds")],
     clientOptions
   );
-  let allRevisionIds = _.pluck(result.rows, "revisionId");
-  Store.setAttribute("allRevisionIds", _.uniq(allRevisionIds));
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } RevisionByContent rows...`
+    } RevisionByContent rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -180,7 +179,12 @@ const copyRevisionByContent = async function(source, destination) {
       VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchAllRevisionByContent(source, query);
+  Store.setAttribute(
+    "allRevisionIds",
+    _.uniq(_.pluck(fetchedRows.rows, "revisionId"))
+  );
   await insertAllRevisionByContent(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllRevisionByContent(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
@@ -227,7 +231,9 @@ const fetchAllRevisions = async function(target, query) {
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Revisions rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Revisions rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -241,27 +247,28 @@ const copyRevisions = async function(source, destination) {
       IN ? LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "Revisions" (
-          "revisionId",
-          "contentId",
-          created,
-          "createdBy",
-          "etherpadHtml",
-          filename,
-          "largeUri",
-          "mediumUri",
-          mime,
-          previews,
-          "previewsId",
-          size,
-          "smallUri",
-          status,
-          "thumbnailUri",
-          uri,
-          "wideUri")
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      "revisionId",
+      "contentId",
+      created,
+      "createdBy",
+      "etherpadHtml",
+      filename,
+      "largeUri",
+      "mediumUri",
+      mime,
+      previews,
+      "previewsId",
+      size,
+      "smallUri",
+      status,
+      "thumbnailUri",
+      uri,
+      "wideUri")
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   let fetchedRows = await fetchAllRevisions(source, query);
   await insertAllRevisions(destination, fetchedRows, insertQuery);
+
   let insertedRows = await fetchAllRevisions(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
@@ -291,7 +298,7 @@ const copyEtherpadContent = async function(source, target) {
     .compact()
     .value();
 
-  let allPrincipalIds = Store.getAttribute("tenantPrincipals");
+  //   let allPrincipalIds = Store.getAttribute("tenantPrincipals");
   // TODO might need to filter these and later add them to the content to filter with
   let allMovedResources = Store.getAttribute("movedResources");
 
@@ -299,17 +306,21 @@ const copyEtherpadContent = async function(source, target) {
       SELECT *
       FROM "Etherpad"
       LIMIT ${clientOptions.fetchSize * 100}`;
-  const insertQuery = `INSERT INTO "Etherpad" (key, data) VALUES (?, ?)`;
+  const insertQuery = `
+      INSERT INTO "Etherpad" (
+      key,
+      data)
+      VALUES (?, ?)`;
   let counter = 0;
-  let allRows = [];
 
-  let allPads = [];
-  let allGroups = [];
-  let allAuthors = [];
+  //   let allRows = [];
+  //   let allPads = [];
+  //   let allGroups = [];
+  //   let allAuthors = [];
   let allAuthorMappings = [];
   let allGroupMappings = [];
 
-  // experimental
+  // Experimental and still to be tested
   let allTokens = [];
   let ueberdbs = [];
   let author2sessions = [];
@@ -436,7 +447,7 @@ const copyEtherpadContent = async function(source, target) {
           client.hset(ALL_PADS, row.key, row.data);
         }
 
-        // experimental
+        // We're doing this to make sure that resources from other tenants are copied too
         let eachPadContentId = eachPadId.split("$")[1];
         if (eachPadContentId) {
           eachPadContentId = eachPadContentId.split("_").join(":");

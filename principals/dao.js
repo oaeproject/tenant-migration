@@ -31,24 +31,10 @@ const fetchAllPrincipals = async function(target, query) {
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Principals rows from ${chalk.cyan(target.database.host)}`
   );
-
-  // We'll need to know which principals are users or groups
-  let tenantPrincipals = [];
-  let tenantGroups = [];
-  let tenantUsers = [];
-  result.rows.forEach(row => {
-    tenantPrincipals.push(row.principalId);
-    if (row.principalId.startsWith("g")) {
-      tenantGroups.push(row.principalId);
-    } else if (row.principalId.startsWith("u")) {
-      tenantUsers.push(row.principalId);
-    }
-  });
-  Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
-  Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
-  Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
 
   return result;
 };
@@ -125,10 +111,26 @@ const copyPrincipals = async function(source, destination) {
       visibility)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    let fetchedRows = await fetchAllPrincipals(source, query);
-    await insertPrincipals(destination, fetchedRows, insertQuery);
-    let insertedRows = await fetchAllPrincipals(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+  let fetchedRows = await fetchAllPrincipals(source, query);
+  // We'll need to know which principals are users or groups
+  let tenantPrincipals = [];
+  let tenantGroups = [];
+  let tenantUsers = [];
+  fetchedRows.rows.forEach(row => {
+    tenantPrincipals.push(row.principalId);
+    if (row.principalId.startsWith("g")) {
+      tenantGroups.push(row.principalId);
+    } else if (row.principalId.startsWith("u")) {
+      tenantUsers.push(row.principalId);
+    }
+  });
+  Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
+  Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
+  Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
+  await insertPrincipals(destination, fetchedRows, insertQuery);
+
+  let insertedRows = await fetchAllPrincipals(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 const fetchPrincipalsByEmail = async function(target, query) {
@@ -140,7 +142,7 @@ const fetchPrincipalsByEmail = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } PrincipalsByEmail rows...`
+    } PrincipalsByEmail rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -176,10 +178,10 @@ const copyPrincipalsByEmail = async function(source, destination) {
         "principalId")
       VALUES (?, ?)`;
 
-    let fetchedRows = await fetchPrincipalsByEmail(source, query);
-    await insertPrincipalsByEmail(destination, fetchedRows, insertQuery);
-    let insertedRows = await fetchPrincipalsByEmail(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+  let fetchedRows = await fetchPrincipalsByEmail(source, query);
+  await insertPrincipalsByEmail(destination, fetchedRows, insertQuery);
+  let insertedRows = await fetchPrincipalsByEmail(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 module.exports = {

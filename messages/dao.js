@@ -59,13 +59,10 @@ const fetchDiscussions = async function(target, query) {
     clientOptions
   );
 
-  let discussionsFromThisTenancyAlone = _.pluck(result.rows, "id");
-  Store.setAttribute(
-    "discussionsFromThisTenancyAlone",
-    _.uniq(discussionsFromThisTenancyAlone)
-  );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Discussions rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Discussions rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -78,13 +75,6 @@ const copyDiscussions = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "Discussions" (
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [source.database.tenantAlias],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
       id,
       created,
       "createdBy",
@@ -96,6 +86,11 @@ const copyDiscussions = async function(source, destination) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
   let fetchedRows = await fetchDiscussions(source, query);
+  let discussionsFromThisTenancyAlone = _.pluck(fetchedRows.rows, "id");
+  Store.setAttribute(
+    "discussionsFromThisTenancyAlone",
+    _.uniq(discussionsFromThisTenancyAlone)
+  );
   await insertDiscussions(destination, fetchedRows, insertQuery);
 };
 
@@ -126,9 +121,7 @@ const copyMessageBoxMessages = async function(source, destination) {
       _.uniq(threadKeysFromThisTenancyAlone)
     );
     logger.info(
-      `${chalk.green(`✓`)}  Fetched ${
-        allRows.length
-      } MessageBoxMessages rows...`
+      `${chalk.green(`✓`)}  Fetched ${allRows.length} MessageBoxMessages rows`
     );
 
     if (_.isEmpty(allRows)) {
@@ -209,9 +202,7 @@ const copyMessages = async function(source, destination) {
 
   const afterQuery = async function() {
     Store.setAttribute("allTenantMessages", _.uniq(allTenantMessages));
-    logger.info(
-      `${chalk.green(`✓`)}  Fetched ${allRows.length} Messages rows...`
-    );
+    logger.info(`${chalk.green(`✓`)}  Fetched ${allRows.length} Messages rows`);
 
     if (_.isEmpty(allRows)) {
       return;
@@ -296,7 +287,7 @@ const fetchMessageBoxMessagesDeleted = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } MessageBoxMessagesDeleted rows...`
+    } MessageBoxMessagesDeleted rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -347,13 +338,6 @@ const insertMessageBoxRecentContributions = async function(
   })(target.client, data.rows);
 };
 
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [discussionsAndContentIds],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
 const fetchMessageBoxRecentContributions = async function(target, query) {
   let discussionsAndContentIds = _.union(
     Store.getAttribute("allContentIds"),
@@ -370,7 +354,7 @@ const fetchMessageBoxRecentContributions = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } MessageBoxRecentContributions rows...`
+    } MessageBoxRecentContributions rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -391,13 +375,6 @@ const copyMessageBoxRecentContributions = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "MessageBoxRecentContributions" (
-    const queryResultOnSource = result;
-    result = await target.client.execute(
-        query,
-        [discussionsAndContentIds],
-        clientOptions
-    );
-    util.compareResults(queryResultOnSource.rows.length, result.rows.length);
       "messageBoxId",
       "contributorId",
       value)

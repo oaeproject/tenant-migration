@@ -51,7 +51,7 @@ const fetchAllFollowers = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } FollowingUsersFollowers rows...`
+    } FollowingUsersFollowers rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
@@ -66,10 +66,10 @@ const copyFollowingUsersFollowers = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "FollowingUsersFollowers" (
-          "userId",
-          "followerId",
-          "value")
-          VALUES (?, ?, ?)`;
+      "userId",
+      "followerId",
+      "value")
+      VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchAllFollowers(source, query);
   await insertAllFollowers(destination, fetchedRows, insertQuery);
@@ -103,7 +103,7 @@ const fetchAllFollowing = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } FollowingUsersFollowing rows...`
+    } FollowingUsersFollowing rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -117,10 +117,10 @@ const copyFollowingUsersFollowing = async function(source, destination) {
       LIMIT ${clientOptions.fetchSize}`;
   const insertQuery = `
       INSERT INTO "FollowingUsersFollowing" (
-          "userId",
-          "followingId",
-          "value")
-          VALUES (?, ?, ?)`;
+      "userId",
+      "followingId",
+      "value")
+      VALUES (?, ?, ?)`;
 
   let fetchedRows = await fetchAllFollowing(source, query);
   await insertAllFollowing(destination, fetchedRows, insertQuery);

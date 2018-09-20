@@ -53,7 +53,7 @@ const fetchUserGroupVisits = async function(target, query) {
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } UsersGroupVisits rows...`
+    } UsersGroupVisits rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;

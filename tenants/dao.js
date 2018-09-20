@@ -30,7 +30,8 @@ const copyTenant = async function(source, destination) {
       FROM "Tenant"
       WHERE "alias" = ?
       LIMIT ${clientOptions.fetchSize}`;
-  const insertQuery = `INSERT into "Tenant" (
+  const insertQuery = `
+      INSERT into "Tenant" (
       "alias",
       "active",
       "countryCode",
@@ -39,10 +40,11 @@ const copyTenant = async function(source, destination) {
       "host")
       VALUES (?, ?, ?, ?, ?, ?)`;
 
-    let fetchedRows = await fetchTenants(source, query);
-    await insertTenants(destination, fetchedRows, insertQuery);
-    let insertedRows = await fetchTenants(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+  let fetchedRows = await fetchTenants(source, query);
+  await insertTenants(destination, fetchedRows, insertQuery);
+
+  let insertedRows = await fetchTenants(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 const insertTenants = async function(target, data, insertQuery) {
@@ -70,7 +72,9 @@ const fetchTenants = async function(target, query) {
     target.database.tenantAlias
   ]);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Tenant rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -80,7 +84,9 @@ const fetchConfig = async function(target, query) {
     target.database.tenantAlias
   ]);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows...`
+    `${chalk.green(`✓`)}  Fetched ${
+      result.rows.length
+    } Config rows ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
@@ -115,10 +121,11 @@ const copyTenantConfig = async function(source, destination) {
       value)
       VALUES (?, ?, ?)`;
 
-    let fetchedRows = await fetchConfig(source, query);
-    await insertConfig(destination, fetchedRows, insertQuery);
-    let insertedRows = await fetchConfig(destination, query);
-    util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
+  let fetchedRows = await fetchConfig(source, query);
+  await insertConfig(destination, fetchedRows, insertQuery);
+
+  let insertedRows = await fetchConfig(destination, query);
+  util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 module.exports = {

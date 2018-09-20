@@ -169,7 +169,6 @@ const runDatabaseCopy = async function(...args) {
   await copyTenantGroupsAndFollowers(...args);
   await copyTenantAuthenticationSettings(...args);
   await copyTenantInvitations(...args);
-  await copyTenantInvitations(...args);
 };
 
 const parseConfiguration = function(filename) {
