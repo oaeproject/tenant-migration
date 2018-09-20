@@ -198,8 +198,8 @@ const init = async function() {
 
     // Rsync the files
     let contentTypes = ["c", "f", "u", "g"];
-    // await rsync.transferFiles(source, target, contentTypes);
-    // await rsync.transferAssets(source, target);
+    await rsync.transferFiles(source, destination, contentTypes);
+    await rsync.transferAssets(source, destination);
 
     logger.info(`${chalk.green(`✓`)}  Exiting.`);
   } catch (error) {
