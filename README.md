@@ -1,5 +1,10 @@
 # Tenant migration
 
+![code style](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)
+[![XO code style](https://img.shields.io/badge/code_style-XO-5ed9c7.svg)](https://github.com/xojs/xo)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration?ref=badge_shield)
+[![Known Vulnerabilities](https://snyk.io/test/github/oaeproject/tenant-migration/badge.svg?targetFile=package.json)](https://snyk.io/test/github/oaeproject/tenant-migration?targetFile=package.json)
+
 This is a repo containing a program used to migrate a tenant's data from one OAE instance to another.
 
 This program consists of two parts:
@@ -11,8 +16,8 @@ This program consists of two parts:
 
 - redis
 - rsync
-- node > 8.9.4
-- npm
+- node >= 10.13.0
+- npm >= 6.4.1
 
 # Installation
 
