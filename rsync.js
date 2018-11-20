@@ -13,22 +13,20 @@
  * permissions and limitations under the License.
  */
 
-const path = require("path");
-const _ = require("underscore");
-const chalk = require("chalk");
-const { ConnectionPool } = require("ssh-pool");
-const mkdirp = require("mkdirp2");
-const { Store } = require("./store");
-const logger = require("./logger");
+const path = require('path');
+const _ = require('underscore');
+const chalk = require('chalk');
+const { ConnectionPool } = require('ssh-pool');
+const mkdirp = require('mkdirp2');
+const { Store } = require('./store');
+const logger = require('./logger');
 
 const transferFiles = async function(source, destination, contentTypes) {
   const foldersToSync = _.map(contentTypes, eachContentType => {
-    return path.join("files", eachContentType);
+    return path.join('files', eachContentType);
   });
   // Create the ssh connections to both origin/target servers
-  const sourceHostConnection = new ConnectionPool([
-    `${source.files.user}@${source.files.host}`
-  ]);
+  const sourceHostConnection = new ConnectionPool([`${source.files.user}@${source.files.host}`]);
   const destinationHostConnection = new ConnectionPool([
     `${destination.files.user}@${destination.files.host}`
   ]);
@@ -41,12 +39,8 @@ const transferFiles = async function(source, destination, contentTypes) {
   for (let i = 0; i < foldersToSync.length; i++) {
     const eachFolder = foldersToSync[i];
 
-    // the origin folder that we're syncing to other servers
-    sourceDirectory = path.join(
-      source.files.path,
-      eachFolder,
-      source.database.tenantAlias
-    );
+    // The origin folder that we're syncing to other servers
+    sourceDirectory = path.join(source.files.path, eachFolder, source.database.tenantAlias);
 
     // Make sure the directories exist locally otherwise rsync fails
     const localDirectory = path.join(localPath, eachFolder);
@@ -64,7 +58,7 @@ const transferFiles = async function(source, destination, contentTypes) {
           directory: sourceDirectory,
           host: source.files.host
         },
-        local: { directory: localDirectory, host: "localhost" },
+        local: { directory: localDirectory, host: 'localhost' },
         remote: {
           directory: remoteDirectory,
           host: destination.files.host
@@ -74,18 +68,18 @@ const transferFiles = async function(source, destination, contentTypes) {
     );
   }
 
-  let movedResources = Store.getAttribute("movedResources");
+  const movedResources = Store.getAttribute('movedResources');
   if (movedResources) {
     for (let i = 0; i < movedResources.length; i++) {
-      let eachResource = movedResources[i];
-      const eachResourceParts = eachResource.split(":");
+      const eachResource = movedResources[i];
+      const eachResourceParts = eachResource.split(':');
       const [eachContentType, tenantAlias, eachResourceId] = eachResourceParts;
 
       // TODO we need to later include etherpad documents in this
-      if (eachContentType !== "d") {
-        let eachCurrentFilePath = path.join(
+      if (eachContentType !== 'd') {
+        const eachCurrentFilePath = path.join(
           source.files.path,
-          "files",
+          'files',
           eachContentType,
           tenantAlias,
           eachResourceId.slice(0, 2),
@@ -95,7 +89,7 @@ const transferFiles = async function(source, destination, contentTypes) {
         );
         let eachLocalFilePath = path.join(
           process.cwd(),
-          "files",
+          'files',
           eachContentType,
           tenantAlias,
           eachResourceId.slice(0, 2),
@@ -108,29 +102,23 @@ const transferFiles = async function(source, destination, contentTypes) {
           } with ${chalk.cyan(eachLocalFilePath)} on localhost`
         );
 
-        // for some reason, the file we're copying might NOT exist remotely, so we need to check beforehand
+        // For some reason, the file we're copying might NOT exist remotely, so we need to check beforehand
         let fileExistsOnSource = await sourceHostConnection.run(
-          "test -d " + eachCurrentFilePath + "; echo $?"
+          'test -d ' + eachCurrentFilePath + '; echo $?'
         );
-        fileExistsOnSource = parseInt(_.first(fileExistsOnSource).stdout);
+        fileExistsOnSource = parseInt(_.first(fileExistsOnSource).stdout, 10);
 
         if (fileExistsOnSource === 0) {
           await mkdirp.promise(eachLocalFilePath);
-          await sourceHostConnection.copyFromRemote(
-            eachCurrentFilePath,
-            eachLocalFilePath,
-            {
-              verbosityLevel: 3
-            }
-          );
+          await sourceHostConnection.copyFromRemote(eachCurrentFilePath, eachLocalFilePath, {
+            verbosityLevel: 3
+          });
 
-          eachLocalFilePath = path.join(
-            eachLocalFilePath,
-            eachResourceId.slice(6, 8)
-          );
-          eachRemoteFilePath = path.join(
+          eachLocalFilePath = path.join(eachLocalFilePath, eachResourceId.slice(6, 8));
+
+          const eachRemoteFilePath = path.join(
             destinationPath,
-            "files",
+            'files',
             eachContentType,
             source.database.tenantAlias,
             eachResourceId.slice(0, 2),
@@ -141,71 +129,37 @@ const transferFiles = async function(source, destination, contentTypes) {
           logger.info(
             `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
               eachLocalFilePath
-            )} on localhost with ${chalk.cyan(eachRemoteFilePath)} on ${
-              destination.files.host
-            }`
+            )} on localhost with ${chalk.cyan(eachRemoteFilePath)} on ${destination.files.host}`
           );
           await destinationHostConnection.run(`mkdir -p ${eachRemoteFilePath}`);
-          await destinationHostConnection.copyToRemote(
-            eachLocalFilePath,
-            eachRemoteFilePath,
-            {
-              verbosityLevel: 3
-            }
-          );
+          await destinationHostConnection.copyToRemote(eachLocalFilePath, eachRemoteFilePath, {
+            verbosityLevel: 3
+          });
         }
       }
     }
   }
 };
 
-const transferMovedResources = async function(
-  sourceHost,
-  targetHost,
-  rsyncData,
-  tenantAlias
-) {};
-
-const runEachTransfer = async function(
-  sourceHost,
-  destinationHost,
-  rsyncData,
-  tenantAlias
-) {
-  logger.info(
-    chalk.cyan(`﹅  Rsync operation under way, this may take a while...`)
-  );
-  logger.info(
-    chalk.cyan(`﹅  Source directory:`) + ` ${rsyncData.source.directory}`
-  );
-  logger.info(
-    chalk.cyan(`﹅  Local directory:`) + ` ${rsyncData.local.directory}`
-  );
-  logger.info(
-    chalk.cyan(`﹅  Target directory:`) + ` ${rsyncData.remote.directory}`
-  );
+const runEachTransfer = async function(sourceHost, destinationHost, rsyncData, tenantAlias) {
+  logger.info(chalk.cyan(`﹅  Rsync operation under way, this may take a while...`));
+  logger.info(chalk.cyan(`﹅  Source directory:`) + ` ${rsyncData.source.directory}`);
+  logger.info(chalk.cyan(`﹅  Local directory:`) + ` ${rsyncData.local.directory}`);
+  logger.info(chalk.cyan(`﹅  Target directory:`) + ` ${rsyncData.remote.directory}`);
 
   logger.info(
-    `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
-      rsyncData.source.directory
-    )} on ${rsyncData.source.host} with ${chalk.cyan(
-      rsyncData.local.directory
-    )} on localhost`
+    `${chalk.green(`✓`)}  Syncing ${chalk.cyan(rsyncData.source.directory)} on ${
+      rsyncData.source.host
+    } with ${chalk.cyan(rsyncData.local.directory)} on localhost`
   );
-  await sourceHost.copyFromRemote(
-    rsyncData.source.directory,
-    rsyncData.local.directory,
-    {
-      verbosityLevel: 3
-    }
-  );
+  await sourceHost.copyFromRemote(rsyncData.source.directory, rsyncData.local.directory, {
+    verbosityLevel: 3
+  });
 
   logger.info(
     `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
       rsyncData.local.directory
-    )} on localhost with ${chalk.cyan(rsyncData.remote.directory)} on ${
-      rsyncData.remote.host
-    }`
+    )} on localhost with ${chalk.cyan(rsyncData.remote.directory)} on ${rsyncData.remote.host}`
   );
   await destinationHost.copyToRemote(
     path.join(rsyncData.local.directory, tenantAlias),
@@ -219,19 +173,12 @@ const runEachTransfer = async function(
 
 const transferAssets = async function(source, target) {
   // Create the ssh connections to both origin/target servers
-  const sourceHostConnection = new ConnectionPool([
-    `${source.files.user}@${source.files.host}`
-  ]);
-  const targetHostConnection = new ConnectionPool([
-    `${target.files.user}@${target.files.host}`
-  ]);
+  const sourceHostConnection = new ConnectionPool([`${source.files.user}@${source.files.host}`]);
+  const targetHostConnection = new ConnectionPool([`${target.files.user}@${target.files.host}`]);
 
-  let sourceAssetsPath = path.join(
-    "/shared/assets",
-    source.database.tenantAlias
-  );
-  let localAssetsPath = path.join(process.cwd(), "assets");
-  let targetAssetsPath = path.join(target.files.path, "assets");
+  const sourceAssetsPath = path.join('/shared/assets', source.database.tenantAlias);
+  const localAssetsPath = path.join(process.cwd(), 'assets');
+  const targetAssetsPath = path.join(target.files.path, 'assets');
 
   logger.info(
     `${chalk.green(`✓`)}  Syncing ${chalk.cyan(sourceAssetsPath)} on ${
@@ -245,9 +192,7 @@ const transferAssets = async function(source, target) {
   logger.info(
     `${chalk.green(`✓`)}  Syncing ${chalk.cyan(
       path.join(localAssetsPath, source.database.tenantAlias)
-    )} on localhost with ${chalk.cyan(targetAssetsPath)} on ${
-      target.files.host
-    }`
+    )} on localhost with ${chalk.cyan(targetAssetsPath)} on ${target.files.host}`
   );
   await targetHostConnection.run(`mkdir -p ${targetAssetsPath}`);
   await targetHostConnection.copyToRemote(
