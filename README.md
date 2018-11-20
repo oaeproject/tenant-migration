@@ -1,4 +1,6 @@
 # Tenant migration
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration?ref=badge_shield)
+
 
 This is a repo containing a program used to migrate a tenant's data from one OAE instance to another.
 
@@ -93,3 +95,7 @@ The complex part is the one regarding etherpad data transfer, mostly because it'
 
 - [HTTP API](https://github.com/ether/etherpad-lite/wiki/HTTP-API)
 - [Etherpad docs](http://etherpad.org/doc/v1.5.6/#index_about_this_documentation)
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Foaeproject%2Ftenant-migration?ref=badge_large)
