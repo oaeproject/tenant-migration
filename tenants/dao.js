@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
 
-const logger = require("../logger");
-const util = require("../util");
+const logger = require('../logger');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -40,10 +41,10 @@ const copyTenant = async function(source, destination) {
       "host")
       VALUES (?, ?, ?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchTenants(source, query);
+  const fetchedRows = await fetchTenants(source, query);
   await insertTenants(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchTenants(destination, query);
+  const insertedRows = await fetchTenants(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -68,25 +69,21 @@ const insertTenants = async function(target, data, insertQuery) {
 };
 
 const fetchTenants = async function(target, query) {
-  let result = await target.client.execute(query, [
-    target.database.tenantAlias
-  ]);
+  const result = await target.client.execute(query, [target.database.tenantAlias]);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Tenant rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Tenant rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
 
 const fetchConfig = async function(target, query) {
-  let result = await target.client.execute(query, [
-    target.database.tenantAlias
-  ]);
+  const result = await target.client.execute(query, [target.database.tenantAlias]);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Config rows ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Config rows ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
@@ -95,15 +92,11 @@ const insertConfig = async function(target, result, insertQuery) {
   if (_.isEmpty(result.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(insertQuery, [
-        row.tenantAlias,
-        row.configKey,
-        row.value
-      ]);
+      await targetClient.execute(insertQuery, [row.tenantAlias, row.configKey, row.value]);
     }
   })(target.client, result.rows);
 };
@@ -121,10 +114,10 @@ const copyTenantConfig = async function(source, destination) {
       value)
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchConfig(source, query);
+  const fetchedRows = await fetchConfig(source, query);
   await insertConfig(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchConfig(destination, query);
+  const insertedRows = await fetchConfig(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

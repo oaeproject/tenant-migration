@@ -13,12 +13,11 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -30,7 +29,7 @@ const insertDiscussions = async function(target, data, insertQuery) {
     return;
   }
 
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -53,16 +52,12 @@ const insertDiscussions = async function(target, data, insertQuery) {
 };
 
 const fetchDiscussions = async function(target, query) {
-  let result = await target.client.execute(
-    query,
-    [target.database.tenantAlias],
-    clientOptions
-  );
+  const result = await target.client.execute(query, [target.database.tenantAlias], clientOptions);
 
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Discussions rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Discussions rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
@@ -85,17 +80,14 @@ const copyDiscussions = async function(source, destination) {
       visibility)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchDiscussions(source, query);
-  let discussionsFromThisTenancyAlone = _.pluck(fetchedRows.rows, "id");
-  Store.setAttribute(
-    "discussionsFromThisTenancyAlone",
-    _.uniq(discussionsFromThisTenancyAlone)
-  );
+  const fetchedRows = await fetchDiscussions(source, query);
+  const discussionsFromThisTenancyAlone = _.pluck(fetchedRows.rows, 'id');
+  Store.setAttribute('discussionsFromThisTenancyAlone', _.uniq(discussionsFromThisTenancyAlone));
   await insertDiscussions(destination, fetchedRows, insertQuery);
 };
 
-const copyMessageBoxMessages = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+const copyMessageBoxMessages = function(source, destination) {
+  if (_.isEmpty(Store.getAttribute('allResourceIds'))) {
     logger.info(chalk.cyan(`✗  Skipped fetching MessageBoxMessages rows...\n`));
     return [];
   }
@@ -112,17 +104,12 @@ const copyMessageBoxMessages = async function(source, destination) {
       "threadKey",
       value)
       VALUES (?, ?, ?)`;
-  let allRows = [];
-  let threadKeysFromThisTenancyAlone = [];
+  const allRows = [];
+  const threadKeysFromThisTenancyAlone = [];
 
   const afterQuery = async function() {
-    Store.setAttribute(
-      "threadKeysFromThisTenancyAlone",
-      _.uniq(threadKeysFromThisTenancyAlone)
-    );
-    logger.info(
-      `${chalk.green(`✓`)}  Fetched ${allRows.length} MessageBoxMessages rows`
-    );
+    Store.setAttribute('threadKeysFromThisTenancyAlone', _.uniq(threadKeysFromThisTenancyAlone));
+    logger.info(`${chalk.green(`✓`)}  Fetched ${allRows.length} MessageBoxMessages rows`);
 
     if (_.isEmpty(allRows)) {
       return;
@@ -149,7 +136,7 @@ const copyMessageBoxMessages = async function(source, destination) {
         allRows.push(row);
         threadKeysFromThisTenancyAlone.push({
           messageBoxId: row.messageBoxId,
-          threadKey: _.last(row.threadKey.split("#"))
+          threadKey: _.last(row.threadKey.split('#'))
         });
       }
     }
@@ -158,29 +145,29 @@ const copyMessageBoxMessages = async function(source, destination) {
   function streamRows() {
     const com = source.client.stream(query, [
       _.union(
-        Store.getAttribute("allContentIds"),
-        Store.getAttribute("discussionsFromThisTenancyAlone"),
-        Store.getAttribute("allResourceIds")
+        Store.getAttribute('allContentIds'),
+        Store.getAttribute('discussionsFromThisTenancyAlone'),
+        Store.getAttribute('allResourceIds')
       )
     ]);
     const promise = new Promise((resolve, reject) => {
-      com.on("end", async () => {
+      com.on('end', async () => {
         await afterQuery();
         resolve();
       });
-      com.on("error", reject);
+      com.on('error', reject);
     });
-    promise.on = function() {
-      com.on.apply(com, arguments);
+    promise.on = function(...args) {
+      com.on(...args);
       return promise;
     };
     return promise;
   }
-  return streamRows().on("readable", filterRows);
+  return streamRows().on('readable', filterRows);
 };
 
-const copyMessages = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
+const copyMessages = function(source, destination) {
+  if (_.isEmpty(Store.getAttribute('allResourceIds'))) {
     logger.info(chalk.cyan(`✗  Skipped fetching Messages rows...\n`));
     return [];
   }
@@ -197,11 +184,11 @@ const copyMessages = async function(source, destination) {
       deleted,
       "threadKey")
       VALUES (?, ?, ?, ?, ?)`;
-  let allRows = [];
-  let allTenantMessages = [];
+  const allRows = [];
+  const allTenantMessages = [];
 
   const afterQuery = async function() {
-    Store.setAttribute("allTenantMessages", _.uniq(allTenantMessages));
+    Store.setAttribute('allTenantMessages', _.uniq(allTenantMessages));
     logger.info(`${chalk.green(`✓`)}  Fetched ${allRows.length} Messages rows`);
 
     if (_.isEmpty(allRows)) {
@@ -213,7 +200,7 @@ const copyMessages = async function(source, destination) {
   const filterRows = function() {
     let row;
     while ((row = this.read())) {
-      if (row.id && row.id.split(":")[1] === source.database.tenantAlias) {
+      if (row.id && row.id.split(':')[1] === source.database.tenantAlias) {
         allRows.push(row);
         allTenantMessages.push(row.id);
       }
@@ -235,30 +222,26 @@ const copyMessages = async function(source, destination) {
   function streamRows() {
     const com = source.client.stream(query);
     const p = new Promise((resolve, reject) => {
-      com.on("end", async () => {
+      com.on('end', async () => {
         await afterQuery();
         resolve();
       });
-      com.on("error", reject);
+      com.on('error', reject);
     });
-    p.on = function() {
-      com.on.apply(com, arguments);
+    p.on = function(...args) {
+      com.on(...args);
       return p;
     };
     return p;
   }
-  return streamRows().on("readable", filterRows);
+  return streamRows().on('readable', filterRows);
 };
 
-const insertMessageBoxMessagesDeleted = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertMessageBoxMessagesDeleted = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -272,17 +255,13 @@ const insertMessageBoxMessagesDeleted = async function(
 };
 
 const fetchMessageBoxMessagesDeleted = async function(target, query) {
-  let discussionsAndContentIds = _.union(
-    Store.getAttribute("discussionsFromThisTenancyAlone"),
-    Store.getAttribute("allContentIds"),
-    Store.getAttribute("allResourceIds")
+  const discussionsAndContentIds = _.union(
+    Store.getAttribute('discussionsFromThisTenancyAlone'),
+    Store.getAttribute('allContentIds'),
+    Store.getAttribute('allResourceIds')
   );
 
-  let result = await target.client.execute(
-    query,
-    [discussionsAndContentIds],
-    clientOptions
-  );
+  const result = await target.client.execute(query, [discussionsAndContentIds], clientOptions);
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
@@ -293,11 +272,9 @@ const fetchMessageBoxMessagesDeleted = async function(target, query) {
 };
 
 const copyMessageBoxMessagesDeleted = async function(source, destination) {
-  // if (_.isEmpty(Store.getAttribute("discussionsFromThisTenancyAlone"))) {
-  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-    logger.info(
-      chalk.cyan(`✗  Skipped fetching MessageBoxMessagesDeleted rows...\n`)
-    );
+  // If (_.isEmpty(Store.getAttribute("discussionsFromThisTenancyAlone"))) {
+  if (_.isEmpty(Store.getAttribute('allResourceIds'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching MessageBoxMessagesDeleted rows...\n`));
     return [];
   }
   const query = `
@@ -313,19 +290,15 @@ const copyMessageBoxMessagesDeleted = async function(source, destination) {
       value)
       VALUES (?, ? ,?)`;
 
-  let fetchedRows = await fetchMessageBoxMessagesDeleted(source, query);
+  const fetchedRows = await fetchMessageBoxMessagesDeleted(source, query);
   await insertMessageBoxMessagesDeleted(destination, fetchedRows, insertQuery);
 };
 
-const insertMessageBoxRecentContributions = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertMessageBoxRecentContributions = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -339,17 +312,13 @@ const insertMessageBoxRecentContributions = async function(
 };
 
 const fetchMessageBoxRecentContributions = async function(target, query) {
-  let discussionsAndContentIds = _.union(
-    Store.getAttribute("allContentIds"),
-    Store.getAttribute("discussionsFromThisTenancyAlone"),
-    Store.getAttribute("allResourceIds")
+  const discussionsAndContentIds = _.union(
+    Store.getAttribute('allContentIds'),
+    Store.getAttribute('discussionsFromThisTenancyAlone'),
+    Store.getAttribute('allResourceIds')
   );
 
-  let result = await target.client.execute(
-    query,
-    [discussionsAndContentIds],
-    clientOptions
-  );
+  const result = await target.client.execute(query, [discussionsAndContentIds], clientOptions);
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
@@ -360,10 +329,8 @@ const fetchMessageBoxRecentContributions = async function(target, query) {
 };
 
 const copyMessageBoxRecentContributions = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allResourceIds"))) {
-    logger.info(
-      chalk.cyan(`✗  Skipped fetching MessageBoxRecentContributions rows...\n`)
-    );
+  if (_.isEmpty(Store.getAttribute('allResourceIds'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching MessageBoxRecentContributions rows...\n`));
     return [];
   }
   // MessageBoxRecentContributions
@@ -380,12 +347,8 @@ const copyMessageBoxRecentContributions = async function(source, destination) {
       value)
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchMessageBoxRecentContributions(source, query);
-  await insertMessageBoxRecentContributions(
-    destination,
-    fetchedRows,
-    insertQuery
-  );
+  const fetchedRows = await fetchMessageBoxRecentContributions(source, query);
+  await insertMessageBoxRecentContributions(destination, fetchedRows, insertQuery);
 };
 
 module.exports = {

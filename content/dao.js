@@ -13,17 +13,18 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
-const redis = require("redis");
-const { promisify } = require("util");
+/* eslint-disable no-unused-vars, no-await-in-loop */
+const { promisify } = require('util');
+const chalk = require('chalk');
+const _ = require('underscore');
+const redis = require('redis');
+const util = require('../util');
+const logger = require('../logger');
+const { Store } = require('../store');
 
-const ALL_PADS = "all_pads";
-const ALL_GROUPS = "all_groups";
-const ALL_AUTHORS = "all_authors";
+const ALL_PADS = 'all_pads';
+const ALL_GROUPS = 'all_groups';
+const ALL_AUTHORS = 'all_authors';
 
 const clientOptions = {
   fetchSize: 999999,
@@ -34,7 +35,7 @@ const insertAllContent = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -73,16 +74,12 @@ const insertAllContent = async function(target, data, insertQuery) {
 };
 
 const fetchAllContent = async function(target, query) {
-  let allResourceIds = _.uniq(Store.getAttribute("allResourceIds"));
-  let result = await target.client.execute(
-    query,
-    [target.database.tenantAlias],
-    clientOptions
-  );
+  const allResourceIds = _.uniq(Store.getAttribute('allResourceIds'));
+  const result = await target.client.execute(query, [target.database.tenantAlias], clientOptions);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Content rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Content rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -122,12 +119,12 @@ const copyContent = async function(source, destination) {
       "wideUri")
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAllContent(source, query);
-  Store.setAttribute("allTenancyContents", fetchedRows.rows);
-  Store.setAttribute("allContentIds", _.pluck(fetchedRows.rows, "contentId"));
+  const fetchedRows = await fetchAllContent(source, query);
+  Store.setAttribute('allTenancyContents', fetchedRows.rows);
+  Store.setAttribute('allContentIds', _.pluck(fetchedRows.rows, 'contentId'));
   await insertAllContent(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllContent(destination, query);
+  const insertedRows = await fetchAllContent(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -135,7 +132,7 @@ const insertAllRevisionByContent = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -149,16 +146,16 @@ const insertAllRevisionByContent = async function(target, data, insertQuery) {
 };
 
 const fetchAllRevisionByContent = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allContentIds")],
+    [Store.getAttribute('allContentIds')],
     clientOptions
   );
 
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } RevisionByContent rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} RevisionByContent rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -178,14 +175,11 @@ const copyRevisionByContent = async function(source, destination) {
       "revisionId")
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAllRevisionByContent(source, query);
-  Store.setAttribute(
-    "allRevisionIds",
-    _.uniq(_.pluck(fetchedRows.rows, "revisionId"))
-  );
+  const fetchedRows = await fetchAllRevisionByContent(source, query);
+  Store.setAttribute('allRevisionIds', _.uniq(_.pluck(fetchedRows.rows, 'revisionId')));
   await insertAllRevisionByContent(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllRevisionByContent(destination, query);
+  const insertedRows = await fetchAllRevisionByContent(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -193,7 +187,7 @@ const insertAllRevisions = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -225,15 +219,15 @@ const insertAllRevisions = async function(target, data, insertQuery) {
 };
 
 const fetchAllRevisions = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allRevisionIds")],
+    [Store.getAttribute('allRevisionIds')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Revisions rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Revisions rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -266,41 +260,41 @@ const copyRevisions = async function(source, destination) {
       "wideUri")
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAllRevisions(source, query);
+  const fetchedRows = await fetchAllRevisions(source, query);
   await insertAllRevisions(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllRevisions(destination, query);
+  const insertedRows = await fetchAllRevisions(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
-const copyEtherpadContent = async function(source, target) {
-  client = redis.createClient({ host: "localhost" });
+const copyEtherpadContent = function(source, target) {
+  const client = redis.createClient({ host: 'localhost' });
   const redisHGET = promisify(client.hget).bind(client);
   const redisHLEN = promisify(client.hlen).bind(client);
   const redisHKEYS = promisify(client.hkeys).bind(client);
   const redisHVALS = promisify(client.hvals).bind(client);
 
-  client.on("error", function(err) {
+  client.on('error', err => {
     logger.error(`${chalk.red(`✗`)}  Something went wrong: `);
-    logger.error(error.stack);
+    logger.error(err.stack);
   });
 
-  let allTenancyContents = Store.getAttribute("allTenancyContents");
+  const allTenancyContents = Store.getAttribute('allTenancyContents');
 
-  let allEtherpadPadIds = _.chain(allTenancyContents)
-    .pluck("etherpadPadId")
+  const allEtherpadPadIds = _.chain(allTenancyContents)
+    .pluck('etherpadPadId')
     .uniq()
     .compact()
     .value();
-  let allEtherpadGroupIds = _.chain(allTenancyContents)
-    .pluck("etherpadGroupId")
+  const allEtherpadGroupIds = _.chain(allTenancyContents)
+    .pluck('etherpadGroupId')
     .uniq()
     .compact()
     .value();
 
-  //   let allPrincipalIds = Store.getAttribute("tenantPrincipals");
+  //   Let allPrincipalIds = Store.getAttribute("tenantPrincipals");
   // TODO might need to filter these and later add them to the content to filter with
-  let allMovedResources = Store.getAttribute("movedResources");
+  const allMovedResources = Store.getAttribute('movedResources');
 
   const query = `
       SELECT *
@@ -313,39 +307,37 @@ const copyEtherpadContent = async function(source, target) {
       VALUES (?, ?)`;
   let counter = 0;
 
-  //   let allRows = [];
+  //   Let allRows = [];
   //   let allPads = [];
   //   let allGroups = [];
   //   let allAuthors = [];
-  let allAuthorMappings = [];
-  let allGroupMappings = [];
+  const allAuthorMappings = [];
+  const allGroupMappings = [];
 
   // Experimental and still to be tested
-  let allTokens = [];
-  let ueberdbs = [];
-  let author2sessions = [];
-  let group2sessions = [];
-  let token2authors = [];
-  let readonly2pads = [];
-  let pad2readonlys = [];
+  const allTokens = [];
+  const ueberdbs = [];
+  const author2sessions = [];
+  const group2sessions = [];
+  const token2authors = [];
+  const readonly2pads = [];
+  const pad2readonlys = [];
 
   async function filterAuthors(allAuthorMappings) {
-    let mappedAuthorsKeys = _.map(allAuthorMappings, eachAuthorMapping => {
+    const mappedAuthorsKeys = _.map(allAuthorMappings, eachAuthorMapping => {
       return `globalAuthor:${eachAuthorMapping.data.slice(1, -1)}`;
     });
-    let authorsToCopy = [];
+    const authorsToCopy = [];
     for (let index = 0; index < allAuthorMappings.length; index++) {
-      let eachMappedAuthorKey = mappedAuthorsKeys[index];
-      let eachMappedAuthorValue = await redisHGET(
-        ALL_AUTHORS,
-        eachMappedAuthorKey
-      );
+      const eachMappedAuthorKey = mappedAuthorsKeys[index];
+      // Estlint-disable-next-line no-await-in-loop
+      const eachMappedAuthorValue = await redisHGET(ALL_AUTHORS, eachMappedAuthorKey);
       authorsToCopy.push({
         key: eachMappedAuthorKey,
         data: eachMappedAuthorValue
       });
     }
-    let allAuthorsSize = await redisHLEN(ALL_AUTHORS);
+    const allAuthorsSize = await redisHLEN(ALL_AUTHORS);
     logger.info(
       `${chalk.green(`✓`)}  Selected ${
         authorsToCopy.length
@@ -356,23 +348,20 @@ const copyEtherpadContent = async function(source, target) {
   }
 
   async function filterGroups(allGroupMappings) {
-    let mappedGroupKeys = _.map(allGroupMappings, eachGroupMapping => {
+    const mappedGroupKeys = _.map(allGroupMappings, eachGroupMapping => {
       return `group:${eachGroupMapping.data.slice(1, -1)}`;
     });
-    // let mappedGroupValues = await redisHMGET(ALL_GROUPS, mappedGroupKeys);
-    let groupsToCopy = [];
+    // Let mappedGroupValues = await redisHMGET(ALL_GROUPS, mappedGroupKeys);
+    const groupsToCopy = [];
     for (let index = 0; index < allGroupMappings.length; index++) {
-      let eachMappedGroupKey = mappedGroupKeys[index];
-      let eachMappedGroupValue = await redisHGET(
-        ALL_GROUPS,
-        eachMappedGroupKey
-      );
+      const eachMappedGroupKey = mappedGroupKeys[index];
+      const eachMappedGroupValue = await redisHGET(ALL_GROUPS, eachMappedGroupKey);
       groupsToCopy.push({
         key: eachMappedGroupKey,
         data: eachMappedGroupValue
       });
     }
-    let allGroupsSize = await redisHLEN(ALL_GROUPS);
+    const allGroupsSize = await redisHLEN(ALL_GROUPS);
     logger.info(
       `${chalk.green(`✓`)}  Selected ${
         groupsToCopy.length
@@ -383,16 +372,16 @@ const copyEtherpadContent = async function(source, target) {
   }
 
   async function filterPads() {
-    let allPadKeys = await redisHKEYS(ALL_PADS);
-    let allPadsSize = await redisHLEN(ALL_PADS);
-    let allPadValues = await redisHVALS(ALL_PADS);
+    const allPadKeys = await redisHKEYS(ALL_PADS);
+    const allPadsSize = await redisHLEN(ALL_PADS);
+    const allPadValues = await redisHVALS(ALL_PADS);
 
     let uniquePadKeys = _.map(allPadKeys, eachPad => {
-      return eachPad.split(":")[1];
+      return eachPad.split(':')[1];
     });
     uniquePadKeys = _.uniq(uniquePadKeys);
 
-    let allPadsToCopy = [];
+    const allPadsToCopy = [];
     for (let index = 0; index < allPadsSize; index++) {
       allPadsToCopy.push({
         key: allPadKeys[index],
@@ -402,26 +391,16 @@ const copyEtherpadContent = async function(source, target) {
     logger.info(
       `${chalk.green(`✓`)}  Selected ${
         allPadsToCopy.length
-      } Etherpad pad rows from ${allPadsSize}, ${
-        uniquePadKeys.length
-      } are unique!`
+      } Etherpad pad rows from ${allPadsSize}, ${uniquePadKeys.length} are unique!`
     );
     return allPadsToCopy;
   }
-
-  let isArray = function(a) {
-    return !!a && a.constructor === Array;
-  };
 
   async function insertRows(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.key, row.data],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.key, row.data], clientOptions);
     }
   }
 
@@ -429,49 +408,49 @@ const copyEtherpadContent = async function(source, target) {
     let row;
     while ((row = this.read())) {
       counter++;
-      if (row.key.startsWith("mapper2group:")) {
-        let alias = row.key.split(":")[2];
+      if (row.key.startsWith('mapper2group:')) {
+        const alias = row.key.split(':')[2];
         if (alias === source.database.tenantAlias) {
           allGroupMappings.push(row);
         }
-      } else if (row.key.startsWith("mapper2author:")) {
-        let alias = row.key.split(":")[2];
+      } else if (row.key.startsWith('mapper2author:')) {
+        const alias = row.key.split(':')[2];
         if (alias === source.database.tenantAlias) {
           allAuthorMappings.push(row);
         }
-      } else if (row.key.startsWith("pad:")) {
+      } else if (row.key.startsWith('pad:')) {
         let eachPadId = row.key.slice(4);
-        eachPadId = eachPadId.split(":")[0];
+        eachPadId = eachPadId.split(':')[0];
         if (_.contains(allEtherpadPadIds, eachPadId)) {
-          // allPads.push({ key: row.key, data: row.data });
+          // AllPads.push({ key: row.key, data: row.data });
           client.hset(ALL_PADS, row.key, row.data);
         }
 
         // We're doing this to make sure that resources from other tenants are copied too
-        let eachPadContentId = eachPadId.split("$")[1];
+        let eachPadContentId = eachPadId.split('$')[1];
         if (eachPadContentId) {
-          eachPadContentId = eachPadContentId.split("_").join(":");
+          eachPadContentId = eachPadContentId.split('_').join(':');
         }
         if (_.contains(allMovedResources, eachPadContentId)) {
-          // we found a pad that belongs to another tenant but should be copied all the same (has at least one principal managing it)
+          // We found a pad that belongs to another tenant but should be copied all the same (has at least one principal managing it)
           counter++;
           client.hset(ALL_PADS, row.key, row.data);
 
-          // debug
+          // Debug
           //   console.log("This pad is a moved resource -> " + eachPadId);
         }
-      } else if (row.key.startsWith("group:")) {
-        let eachGoupId = row.key.split(":")[1];
+      } else if (row.key.startsWith('group:')) {
+        const eachGoupId = row.key.split(':')[1];
         if (_.contains(allEtherpadGroupIds, eachGoupId)) {
-          // allGroups.push({ key: row.key, data: row.data });
+          // AllGroups.push({ key: row.key, data: row.data });
           client.hset(ALL_GROUPS, row.key, row.data);
         }
-      } else if (row.key.startsWith("globalAuthor:")) {
+      } else if (row.key.startsWith('globalAuthor:')) {
         // AllAuthors.push({ key: row.key, data: row.data });
         client.hset(ALL_AUTHORS, row.key, row.data);
       }
       /*
-            else if (row.key.startsWith("token2author:")) {
+            Else if (row.key.startsWith("token2author:")) {
                 allTokens.push("globalAuthor:" + row.data.slice(1, -1));
                 token2authors.push(row);
             } else if (row.key.startsWith("session:")) {
@@ -496,44 +475,32 @@ const copyEtherpadContent = async function(source, target) {
   const afterQuery = async function() {
     logger.info(`${chalk.green(`✓`)}  Filtered ${counter} Etherpad rows...`);
 
-    let authorsToCopy = await filterAuthors(allAuthorMappings);
+    const authorsToCopy = await filterAuthors(allAuthorMappings);
     logger.info(
-      `${chalk.green(`✓`)}  Inserting ${
-        authorsToCopy.length
-      } Etherpad globalAuthor rows...`
+      `${chalk.green(`✓`)}  Inserting ${authorsToCopy.length} Etherpad globalAuthor rows...`
     );
     await insertRows(target.client, authorsToCopy);
 
-    let groupsToCopy = await filterGroups(allGroupMappings);
-    logger.info(
-      `${chalk.green(`✓`)}  Inserting ${
-        groupsToCopy.length
-      } Etherpad group rows...`
-    );
+    const groupsToCopy = await filterGroups(allGroupMappings);
+    logger.info(`${chalk.green(`✓`)}  Inserting ${groupsToCopy.length} Etherpad group rows...`);
     await insertRows(target.client, groupsToCopy);
 
     logger.info(
-      `${chalk.green(`✓`)}  Inserting ${
-        allGroupMappings.length
-      } Etherpad mapper2group rows...`
+      `${chalk.green(`✓`)}  Inserting ${allGroupMappings.length} Etherpad mapper2group rows...`
     );
     await insertRows(target.client, allGroupMappings);
 
     logger.info(
-      `${chalk.green(`✓`)}  Inserting ${
-        allAuthorMappings.length
-      } Etherpad mapper2author rows...`
+      `${chalk.green(`✓`)}  Inserting ${allAuthorMappings.length} Etherpad mapper2author rows...`
     );
     await insertRows(target.client, allAuthorMappings);
 
-    let padsToCopy = await filterPads();
-    logger.info(
-      `${chalk.green(`✓`)}  Inserting ${padsToCopy.length} Etherpad pad rows...`
-    );
+    const padsToCopy = await filterPads();
+    logger.info(`${chalk.green(`✓`)}  Inserting ${padsToCopy.length} Etherpad pad rows...`);
     await insertRows(target.client, padsToCopy);
 
     /*
-                allRows = _.union(
+                AllRows = _.union(
                     allAuthorMappings,
                     allGroupMappings,
                     padsToCopy,
@@ -559,19 +526,19 @@ const copyEtherpadContent = async function(source, target) {
   function streamRows() {
     const com = source.client.stream(query);
     const p = new Promise((resolve, reject) => {
-      com.on("end", async () => {
+      com.on('end', async () => {
         await afterQuery();
         resolve();
       });
-      com.on("error", reject);
+      com.on('error', reject);
     });
-    p.on = function() {
-      com.on.apply(com, arguments);
+    p.on = function(...args) {
+      com.on(...args);
       return p;
     };
     return p;
   }
-  return streamRows().on("readable", filterRows);
+  return streamRows().on('readable', filterRows);
 };
 
 module.exports = {

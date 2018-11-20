@@ -14,11 +14,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -30,7 +31,7 @@ const insertUserGroupVisits = async function(target, data, insertQuery) {
     return;
   }
 
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -44,16 +45,16 @@ const insertUserGroupVisits = async function(target, data, insertQuery) {
 };
 
 const fetchUserGroupVisits = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
 
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } UsersGroupVisits rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} UsersGroupVisits rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -73,9 +74,9 @@ const copyUsersGroupVisits = async function(source, destination) {
       "latestVisit")
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchUserGroupVisits(source, query);
+  const fetchedRows = await fetchUserGroupVisits(source, query);
   await insertUserGroupVisits(destination, fetchedRows, insertQuery);
-  let insertedRows = await fetchUserGroupVisits(destination, query);
+  const insertedRows = await fetchUserGroupVisits(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

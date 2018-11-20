@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -29,7 +30,7 @@ const insertAuthzInvitations = async function(target, data, insertQuery) {
     return;
   }
 
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -43,15 +44,15 @@ const insertAuthzInvitations = async function(target, data, insertQuery) {
 };
 
 const fetchAuthzInvitations = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allResourceIds")],
+    [Store.getAttribute('allResourceIds')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } AuthzInvitations rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzInvitations rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -72,65 +73,45 @@ const copyAuthzInvitations = async function(source, destination) {
       role)
       VALUES (?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAuthzInvitations(source, query);
-  Store.setAttribute(
-    "allInvitationEmails",
-    _.uniq(_.pluck(fetchedRows.rows, "email"))
-  );
+  const fetchedRows = await fetchAuthzInvitations(source, query);
+  Store.setAttribute('allInvitationEmails', _.uniq(_.pluck(fetchedRows.rows, 'email')));
   await insertAuthzInvitations(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAuthzInvitations(destination, query);
+  const insertedRows = await fetchAuthzInvitations(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
-const insertAuthzInvitationsResourceIdByEmail = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertAuthzInvitationsResourceIdByEmail = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.email, row.resourceId],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.email, row.resourceId], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchAuthzInvitationsResourceIdByEmail = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allInvitationEmails")],
+    [Store.getAttribute('allInvitationEmails')],
     clientOptions
   );
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthzInvitationsResourceIdByEmail rows from ${chalk.cyan(
-      target.database.host
-    )}`
+    } AuthzInvitationsResourceIdByEmail rows from ${chalk.cyan(target.database.host)}`
   );
   return result;
 };
 
-const copyAuthzInvitationsResourceIdByEmail = async function(
-  source,
-  destination
-) {
-  if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
-    logger.info(
-      chalk.cyan(
-        `✗  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`
-      )
-    );
+const copyAuthzInvitationsResourceIdByEmail = async function(source, destination) {
+  if (_.isEmpty(Store.getAttribute('allInvitationEmails'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching AuthzInvitationsResourceIdByEmail rows...\n`));
     return [];
   }
 
@@ -145,58 +126,42 @@ const copyAuthzInvitationsResourceIdByEmail = async function(
       email,
       "resourceId")
       VALUES (?, ?)`;
-  let fetchedRows = await fetchAuthzInvitationsResourceIdByEmail(source, query);
-  await insertAuthzInvitationsResourceIdByEmail(
-    destination,
-    fetchedRows,
-    insertQuery
-  );
+  const fetchedRows = await fetchAuthzInvitationsResourceIdByEmail(source, query);
+  await insertAuthzInvitationsResourceIdByEmail(destination, fetchedRows, insertQuery);
 };
 
-const insertAuthzInvitationsTokenByEmail = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertAuthzInvitationsTokenByEmail = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.email, row.token],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.email, row.token], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchAuthzInvitationsTokenByEmail = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allInvitationEmails")],
+    [Store.getAttribute('allInvitationEmails')],
     clientOptions
   );
 
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthzInvitationsTokenByEmail rows from ${chalk.cyan(
-      target.database.host
-    )}`
+    } AuthzInvitationsTokenByEmail rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
 };
 
 const copyAuthzInvitationsTokenByEmail = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allInvitationEmails"))) {
-    logger.info(
-      chalk.cyan(`✗  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`)
-    );
+  if (_.isEmpty(Store.getAttribute('allInvitationEmails'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching AuthzInvitationsTokenByEmail rows...\n`));
     return [];
   }
   const query = `
@@ -210,61 +175,42 @@ const copyAuthzInvitationsTokenByEmail = async function(source, destination) {
       "token")
       VALUES (?, ?)`;
 
-  let fetchedRows = await fetchAuthzInvitationsTokenByEmail(source, query);
-  Store.setAttribute(
-    "allInvitationTokens",
-    _.uniq(_.pluck(fetchedRows.rows, "token"))
-  );
-  await insertAuthzInvitationsTokenByEmail(
-    destination,
-    fetchedRows,
-    insertQuery
-  );
+  const fetchedRows = await fetchAuthzInvitationsTokenByEmail(source, query);
+  Store.setAttribute('allInvitationTokens', _.uniq(_.pluck(fetchedRows.rows, 'token')));
+  await insertAuthzInvitationsTokenByEmail(destination, fetchedRows, insertQuery);
 };
 
-const insertAuthzInvitationsEmailByToken = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertAuthzInvitationsEmailByToken = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.token, row.email],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.token, row.email], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchAuthzInvitationsEmailByToken = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allInvitationTokens")],
+    [Store.getAttribute('allInvitationTokens')],
     clientOptions
   );
   logger.info(
     `${chalk.green(`✓`)}  Fetched ${
       result.rows.length
-    } AuthzInvitationsEmailByToken rows from ${chalk.cyan(
-      target.database.host
-    )}`
+    } AuthzInvitationsEmailByToken rows from ${chalk.cyan(target.database.host)}`
   );
 
   return result;
 };
 
 const copyAuthzInvitationsEmailByToken = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allInvitationTokens"))) {
-    logger.info(
-      chalk.cyan(`✗  Skipped fetching AuthzInvitationsEmailByToken rows...\n`)
-    );
+  if (_.isEmpty(Store.getAttribute('allInvitationTokens'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching AuthzInvitationsEmailByToken rows...\n`));
     return [];
   }
 
@@ -280,12 +226,8 @@ const copyAuthzInvitationsEmailByToken = async function(source, destination) {
       email)
       VALUES (?, ?)`;
 
-  let fetchedRows = await fetchAuthzInvitationsEmailByToken(source, query);
-  await insertAuthzInvitationsEmailByToken(
-    destination,
-    fetchedRows,
-    insertQuery
-  );
+  const fetchedRows = await fetchAuthzInvitationsEmailByToken(source, query);
+  await insertAuthzInvitationsEmailByToken(destination, fetchedRows, insertQuery);
 };
 
 module.exports = {

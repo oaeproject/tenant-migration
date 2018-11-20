@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const util = require("../util");
-const { Store } = require("../store");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const util = require('../util');
+const { Store } = require('../store');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -28,7 +29,7 @@ const insertAllFolders = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -53,15 +54,11 @@ const insertAllFolders = async function(target, data, insertQuery) {
 };
 
 const fetchAllFolders = async function(target, query) {
-  let result = await target.client.execute(
-    query,
-    [target.database.tenantAlias],
-    clientOptions
-  );
+  const result = await target.client.execute(query, [target.database.tenantAlias], clientOptions);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Folders rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Folders rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
@@ -86,14 +83,11 @@ const copyFolders = async function(source, destination) {
       visibility)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`;
 
-  let fetchedRows = await fetchAllFolders(source, query);
-  Store.setAttribute(
-    "folderGroupIdsFromThisTenancyAlone",
-    _.pluck(fetchedRows.rows, "groupId")
-  );
+  const fetchedRows = await fetchAllFolders(source, query);
+  Store.setAttribute('folderGroupIdsFromThisTenancyAlone', _.pluck(fetchedRows.rows, 'groupId'));
   await insertAllFolders(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllFolders(destination, query);
+  const insertedRows = await fetchAllFolders(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -101,35 +95,31 @@ const insertFoldersGroupIds = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.groupId, row.folderId],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.groupId, row.folderId], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchFoldersGroupIds = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("folderGroupIdsFromThisTenancyAlone")],
+    [Store.getAttribute('folderGroupIdsFromThisTenancyAlone')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } FoldersGroupId rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} FoldersGroupId rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
 
 const copyFoldersGroupIds = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("folderGroupIdsFromThisTenancyAlone"))) {
+  if (_.isEmpty(Store.getAttribute('folderGroupIdsFromThisTenancyAlone'))) {
     logger.info(chalk.cyan(`✗  Skipped fetching FoldersGroupId rows...\n`));
     return [];
   }
@@ -144,10 +134,10 @@ const copyFoldersGroupIds = async function(source, destination) {
       "folderId")
       VALUES (?, ?)`;
 
-  let fetchedRows = await fetchFoldersGroupIds(source, query);
+  const fetchedRows = await fetchFoldersGroupIds(source, query);
   await insertFoldersGroupIds(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchFoldersGroupIds(destination, query);
+  const insertedRows = await fetchFoldersGroupIds(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

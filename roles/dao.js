@@ -14,11 +14,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const util = require("../util");
-const { Store } = require("../store");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const util = require('../util');
+const { Store } = require('../store');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -29,7 +30,7 @@ const insertAuthzRoles = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -43,26 +44,26 @@ const insertAuthzRoles = async function(target, data, insertQuery) {
 };
 
 const fetchAuthzRoles = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } AuthzRoles rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzRoles rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
 
 const copyAuthzRoles = async function(source, destination) {
   const _isManager = role => {
-    return role === "manager";
+    return role === 'manager';
   };
 
   const _belongsToOtherTenant = resourceId => {
-    return resourceId.split(":")[1] !== source.database.tenantAlias;
+    return resourceId.split(':')[1] !== source.database.tenantAlias;
   };
 
   const query = `
@@ -78,36 +79,34 @@ const copyAuthzRoles = async function(source, destination) {
       role)
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAuthzRoles(source, query);
+  const fetchedRows = await fetchAuthzRoles(source, query);
   // Some resources from other tenants must be copied too
   // in case at least one of the managers belongs to the tenant being moved
-  let movedResources = [];
+  const movedResources = [];
   _.each(fetchedRows.rows, eachRow => {
     if (_belongsToOtherTenant(eachRow.resourceId) && _isManager(eachRow.role)) {
-      let oldResourceId = eachRow.resourceId;
+      const oldResourceId = eachRow.resourceId;
       eachRow.resourceId = [
-        eachRow.resourceId.split(":")[0],
+        eachRow.resourceId.split(':')[0],
         source.database.tenantAlias,
-        eachRow.resourceId.split(":")[2]
-      ].join(":");
+        eachRow.resourceId.split(':')[2]
+      ].join(':');
 
       // I need to store these so that I can later copy the correspondent files
       movedResources.push(oldResourceId);
     }
   });
-  Store.setAttribute("movedResources", movedResources);
+  Store.setAttribute('movedResources', movedResources);
 
-  // lets move the tenancy of this resource in case it's a manager
-  let allResources = _.filter(fetchedRows.rows, eachResource => {
-    return (
-      eachResource.resourceId.split(":")[1] === source.database.tenantAlias
-    );
+  // Lets move the tenancy of this resource in case it's a manager
+  const allResources = _.filter(fetchedRows.rows, eachResource => {
+    return eachResource.resourceId.split(':')[1] === source.database.tenantAlias;
   });
-  allResourceIds = _.pluck(allResources, "resourceId");
-  Store.setAttribute("allResourceIds", _.uniq(allResourceIds));
+  let allResourceIds = _.pluck(allResources, 'resourceId');
+  Store.setAttribute('allResourceIds', _.uniq(allResourceIds));
   await insertAuthzRoles(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAuthzRoles(destination, query);
+  const insertedRows = await fetchAuthzRoles(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -115,7 +114,7 @@ const insertAuthzMembers = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -129,15 +128,15 @@ const insertAuthzMembers = async function(target, data, insertQuery) {
 };
 
 const fetchAuthzMembers = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } AuthzMembers rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} AuthzMembers rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -157,9 +156,9 @@ const copyAuthzMembers = async function(source, destination) {
       role)
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAuthzMembers(source, query);
+  const fetchedRows = await fetchAuthzMembers(source, query);
   await insertAuthzMembers(destination, fetchedRows, insertQuery);
-  let insertedRows = await fetchAuthzMembers(destination, query);
+  const insertedRows = await fetchAuthzMembers(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -25,15 +26,11 @@ const clientOptions = {
 };
 
 const fetchAllPrincipals = async function(target, query) {
-  let result = await target.client.execute(
-    query,
-    [target.database.tenantAlias],
-    clientOptions
-  );
+  const result = await target.client.execute(query, [target.database.tenantAlias], clientOptions);
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } Principals rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} Principals rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -43,7 +40,7 @@ const insertPrincipals = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -52,8 +49,8 @@ const insertPrincipals = async function(target, data, insertQuery) {
         [
           row.principalId,
           row.acceptedTC,
-          row.get("admin:global"),
-          row.get("admin:tenant"),
+          row.get('admin:global'),
+          row.get('admin:tenant'),
           row.created,
           row.createdBy,
           row.deleted,
@@ -111,38 +108,38 @@ const copyPrincipals = async function(source, destination) {
       visibility)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAllPrincipals(source, query);
+  const fetchedRows = await fetchAllPrincipals(source, query);
   // We'll need to know which principals are users or groups
-  let tenantPrincipals = [];
-  let tenantGroups = [];
-  let tenantUsers = [];
+  const tenantPrincipals = [];
+  const tenantGroups = [];
+  const tenantUsers = [];
   fetchedRows.rows.forEach(row => {
     tenantPrincipals.push(row.principalId);
-    if (row.principalId.startsWith("g")) {
+    if (row.principalId.startsWith('g')) {
       tenantGroups.push(row.principalId);
-    } else if (row.principalId.startsWith("u")) {
+    } else if (row.principalId.startsWith('u')) {
       tenantUsers.push(row.principalId);
     }
   });
-  Store.setAttribute("tenantPrincipals", _.uniq(tenantPrincipals));
-  Store.setAttribute("tenantGroups", _.uniq(tenantGroups));
-  Store.setAttribute("tenantUsers", _.uniq(tenantUsers));
+  Store.setAttribute('tenantPrincipals', _.uniq(tenantPrincipals));
+  Store.setAttribute('tenantGroups', _.uniq(tenantGroups));
+  Store.setAttribute('tenantUsers', _.uniq(tenantUsers));
   await insertPrincipals(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllPrincipals(destination, query);
+  const insertedRows = await fetchAllPrincipals(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
 const fetchPrincipalsByEmail = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } PrincipalsByEmail rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} PrincipalsByEmail rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
@@ -152,15 +149,11 @@ const insertPrincipalsByEmail = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.email, row.principalId],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.email, row.principalId], clientOptions);
     }
   })(target.client, data.rows);
 };
@@ -178,9 +171,9 @@ const copyPrincipalsByEmail = async function(source, destination) {
         "principalId")
       VALUES (?, ?)`;
 
-  let fetchedRows = await fetchPrincipalsByEmail(source, query);
+  const fetchedRows = await fetchPrincipalsByEmail(source, query);
   await insertPrincipalsByEmail(destination, fetchedRows, insertQuery);
-  let insertedRows = await fetchPrincipalsByEmail(destination, query);
+  const insertedRows = await fetchPrincipalsByEmail(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

@@ -13,42 +13,35 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
   prepare: true
 };
 
-const insertAllAuthenticationUserLoginId = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertAllAuthenticationUserLoginId = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.userId, row.loginId, row.value],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.userId, row.loginId, row.value], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchAllAuthenticationUserLoginId = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
 
@@ -73,34 +66,20 @@ const copyAuthenticationUserLoginId = async function(source, destination) {
       "value")
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAllAuthenticationUserLoginId(source, query);
-  Store.setAttribute(
-    "allLoginIds",
-    _.uniq(_.pluck(fetchedRows.rows, "loginId"))
-  );
-  await insertAllAuthenticationUserLoginId(
-    destination,
-    fetchedRows,
-    insertQuery
-  );
+  const fetchedRows = await fetchAllAuthenticationUserLoginId(source, query);
+  Store.setAttribute('allLoginIds', _.uniq(_.pluck(fetchedRows.rows, 'loginId')));
+  await insertAllAuthenticationUserLoginId(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllAuthenticationUserLoginId(
-    destination,
-    query
-  );
+  const insertedRows = await fetchAllAuthenticationUserLoginId(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
-const insertAllAuthenticationLoginId = async function(
-  target,
-  data,
-  insertQuery
-) {
+const insertAllAuthenticationLoginId = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
 
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -114,9 +93,9 @@ const insertAllAuthenticationLoginId = async function(
 };
 
 const fetchAllAuthenticationLoginId = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allLoginIds")],
+    [Store.getAttribute('allLoginIds')],
     clientOptions
   );
   logger.info(
@@ -129,10 +108,8 @@ const fetchAllAuthenticationLoginId = async function(target, query) {
 };
 
 const copyAuthenticationLoginId = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allLoginIds"))) {
-    logger.info(
-      chalk.cyan(`✗  Skipped fetching AuthentiationLoginId rows...\n`)
-    );
+  if (_.isEmpty(Store.getAttribute('allLoginIds'))) {
+    logger.info(chalk.cyan(`✗  Skipped fetching AuthentiationLoginId rows...\n`));
     return [];
   }
   const query = `
@@ -149,10 +126,10 @@ const copyAuthenticationLoginId = async function(source, destination) {
       "userId")
       VALUES (?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAllAuthenticationLoginId(source, query);
+  const fetchedRows = await fetchAllAuthenticationLoginId(source, query);
   await insertAllAuthenticationLoginId(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllAuthenticationLoginId(destination, query);
+  const insertedRows = await fetchAllAuthenticationLoginId(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -160,7 +137,7 @@ const insertAllOAuthClients = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -174,22 +151,22 @@ const insertAllOAuthClients = async function(target, data, insertQuery) {
 };
 
 const fetchAllOAuthClients = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("allOauthClientsIds")],
+    [Store.getAttribute('allOauthClientsIds')],
     clientOptions
   );
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } OAuthClient rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} OAuthClient rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
 
   return result;
 };
 
 const copyOAuthClients = async function(source, destination) {
-  if (_.isEmpty(Store.getAttribute("allOauthClientsIds"))) {
+  if (_.isEmpty(Store.getAttribute('allOauthClientsIds'))) {
     logger.info(chalk.cyan(`✗  Skipped fetching OAuthClient rows...\n`));
     return [];
   }
@@ -208,10 +185,10 @@ const copyOAuthClients = async function(source, destination) {
       "userId")
       VALUES (?, ?, ?, ?)`;
 
-  let fetchedRows = await fetchAllOAuthClients(source, query);
+  const fetchedRows = await fetchAllOAuthClients(source, query);
   await insertAllOAuthClients(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllOAuthClients(destination, query);
+  const insertedRows = await fetchAllOAuthClients(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -219,30 +196,26 @@ const insertAllOAuthClientsByUser = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      await targetClient.execute(
-        insertQuery,
-        [row.userId, row.clientId, row.value],
-        clientOptions
-      );
+      await targetClient.execute(insertQuery, [row.userId, row.clientId, row.value], clientOptions);
     }
   })(target.client, data.rows);
 };
 
 const fetchAllOAuthClientsByUser = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantUsers")],
+    [Store.getAttribute('tenantUsers')],
     clientOptions
   );
 
   logger.info(
-    `${chalk.green(`✓`)}  Fetched ${
-      result.rows.length
-    } OAuthClientsByUser rows from ${chalk.cyan(target.database.host)}`
+    `${chalk.green(`✓`)}  Fetched ${result.rows.length} OAuthClientsByUser rows from ${chalk.cyan(
+      target.database.host
+    )}`
   );
   return result;
 };
@@ -261,14 +234,11 @@ const copyOAuthClientsByUser = async function(source, destination) {
       value)
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAllOAuthClientsByUser(source, query);
-  Store.setAttribute(
-    "allOauthClientsIds",
-    _.uniq(_.pluck(fetchedRows.rows, "clientId"))
-  );
+  const fetchedRows = await fetchAllOAuthClientsByUser(source, query);
+  Store.setAttribute('allOauthClientsIds', _.uniq(_.pluck(fetchedRows.rows, 'clientId')));
   await insertAllOAuthClientsByUser(destination, fetchedRows, insertQuery);
 
-  let insertedRows = await fetchAllOAuthClientsByUser(destination, query);
+  const insertedRows = await fetchAllOAuthClientsByUser(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 

@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-const chalk = require("chalk");
-const _ = require("underscore");
-const logger = require("../logger");
-const { Store } = require("../store");
-const util = require("../util");
+/* eslint-disable no-await-in-loop */
+const chalk = require('chalk');
+const _ = require('underscore');
+const logger = require('../logger');
+const { Store } = require('../store');
+const util = require('../util');
 
 const clientOptions = {
   fetchSize: 999999,
@@ -28,7 +29,7 @@ const insertAllFollowers = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -42,9 +43,9 @@ const insertAllFollowers = async function(target, data, insertQuery) {
 };
 
 const fetchAllFollowers = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
 
@@ -71,9 +72,9 @@ const copyFollowingUsersFollowers = async function(source, destination) {
       "value")
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAllFollowers(source, query);
+  const fetchedRows = await fetchAllFollowers(source, query);
   await insertAllFollowers(destination, fetchedRows, insertQuery);
-  let insertedRows = await fetchAllFollowers(destination, query);
+  const insertedRows = await fetchAllFollowers(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
@@ -81,7 +82,7 @@ const insertAllFollowing = async function(target, data, insertQuery) {
   if (_.isEmpty(data.rows)) {
     return;
   }
-  await (async function insertAll(targetClient, rows) {
+  await (async function(targetClient, rows) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
@@ -95,9 +96,9 @@ const insertAllFollowing = async function(target, data, insertQuery) {
 };
 
 const fetchAllFollowing = async function(target, query) {
-  let result = await target.client.execute(
+  const result = await target.client.execute(
     query,
-    [Store.getAttribute("tenantPrincipals")],
+    [Store.getAttribute('tenantPrincipals')],
     clientOptions
   );
   logger.info(
@@ -122,9 +123,9 @@ const copyFollowingUsersFollowing = async function(source, destination) {
       "value")
       VALUES (?, ?, ?)`;
 
-  let fetchedRows = await fetchAllFollowing(source, query);
+  const fetchedRows = await fetchAllFollowing(source, query);
   await insertAllFollowing(destination, fetchedRows, insertQuery);
-  let insertedRows = await fetchAllFollowing(destination, query);
+  const insertedRows = await fetchAllFollowing(destination, query);
   util.compareResults(fetchedRows.rows.length, insertedRows.rows.length);
 };
 
