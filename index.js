@@ -15,21 +15,24 @@
  * permissions and limitations under the License.
  */
 
-const fs = require("fs");
-const path = require("path");
-const chalk = require("chalk");
+const fs = require('fs');
+const path = require('path');
+const chalk = require('chalk');
 
-const logger = require("./logger");
-let { Store } = require("./store");
-const { initConnection } = require("./db");
-const rsync = require("./rsync");
-const createSchemaQueries = require("./schema");
+const logger = require('./logger');
+const { Store } = require('./store');
+const { initConnection } = require('./db');
+const rsync = require('./rsync');
+const createSchemaQueries = require('./schema');
 
-const { copyPrincipals, copyPrincipalsByEmail } = require("./principals/dao");
+const DO_RSYNC = true;
+const DO_CQL_COPY = true;
 
-const { copyFolders, copyFoldersGroupIds } = require("./folders/dao");
+const { copyPrincipals, copyPrincipalsByEmail } = require('./principals/dao');
 
-const { copyTenant, copyTenantConfig } = require("./tenants/dao");
+const { copyFolders, copyFoldersGroupIds } = require('./folders/dao');
+
+const { copyTenant, copyTenantConfig } = require('./tenants/dao');
 
 const {
   copyDiscussions,
@@ -37,51 +40,48 @@ const {
   copyMessageBoxMessagesDeleted,
   copyMessageBoxRecentContributions,
   copyMessages
-} = require("./messages/dao");
+} = require('./messages/dao');
 
 const {
   copyContent,
   copyRevisionByContent,
   copyRevisions,
   copyEtherpadContent
-} = require("./content/dao");
+} = require('./content/dao');
 
-const { copyAuthzMembers, copyAuthzRoles } = require("./roles/dao");
+const { copyAuthzMembers, copyAuthzRoles } = require('./roles/dao');
 
-const { copyUsersGroupVisits } = require("./groups/dao");
+const { copyUsersGroupVisits } = require('./groups/dao');
 
-const {
-  copyFollowingUsersFollowers,
-  copyFollowingUsersFollowing
-} = require("./following/dao");
+const { copyFollowingUsersFollowers, copyFollowingUsersFollowing } = require('./following/dao');
 
 const {
   copyAuthenticationLoginId,
   copyAuthenticationUserLoginId,
   copyOAuthClients,
   copyOAuthClientsByUser
-} = require("./authentication/dao");
+} = require('./authentication/dao');
 
 const {
   copyAuthzInvitations,
   copyAuthzInvitationsEmailByToken,
   copyAuthzInvitationsResourceIdByEmail,
   copyAuthzInvitationsTokenByEmail
-} = require("./invitations/dao");
+} = require('./invitations/dao');
 
-const SOURCE_CONFIG_FILE = "source.json";
-const DESTINATION_CONFIG_FILE = "destination.json";
+const { copyLibraryIndex } = require('./library/dao');
 
+const SOURCE_CONFIG_FILE = 'source.json';
+const DESTINATION_CONFIG_FILE = 'destination.json';
+
+// eslint-disable-next-line no-new
 new Store();
 Store.init();
 
-const makeSureTablesExistOnTarget = async function(
-  targetClient,
-  createTablesStatements
-) {
+const makeSureTablesExistOnTarget = async function(targetClient, createTablesStatements) {
   const allPromises = [];
   for (let i = 0; i < createTablesStatements.length; i++) {
-    let eachCreateTableStatement = createTablesStatements[i];
+    const eachCreateTableStatement = createTablesStatements[i];
     allPromises.push(
       new Promise(resolve => {
         resolve(targetClient.execute(eachCreateTableStatement.query));
@@ -144,10 +144,7 @@ const runDatabaseCopy = async function(...args) {
       await copyOAuthClientsByUser(...args),
       await copyAuthenticationUserLoginId(...args)
     ]);
-    await Promise.all([
-      await copyOAuthClients(...args),
-      await copyAuthenticationLoginId(...args)
-    ]);
+    await Promise.all([await copyOAuthClients(...args), await copyAuthenticationLoginId(...args)]);
   }
 
   async function copyTenantInvitations(...args) {
@@ -160,19 +157,24 @@ const runDatabaseCopy = async function(...args) {
     await copyAuthzInvitationsEmailByToken(...args);
   }
 
-  await copyTenantDataAndConfig(...args);
-  await copyTenantFolders(...args);
-  await copyTenantPrincipals(...args);
-  await copyTenantResources(...args);
-  await copyTenantContent(...args);
-  await copyTenantDiscussions(...args);
-  await copyTenantGroupsAndFollowers(...args);
-  await copyTenantAuthenticationSettings(...args);
-  await copyTenantInvitations(...args);
+  if (DO_CQL_COPY) {
+    await copyTenantDataAndConfig(...args);
+    await copyTenantFolders(...args);
+    await copyTenantPrincipals(...args);
+    await copyTenantResources(...args);
+    await copyTenantContent(...args);
+    await copyTenantDiscussions(...args);
+    await copyTenantGroupsAndFollowers(...args);
+    await copyTenantAuthenticationSettings(...args);
+    await copyTenantInvitations(...args);
+  }
+
+  // TODO still experimental, merge with the previous if statement later
+  await copyLibraryIndex(...args);
 };
 
 const parseConfiguration = function(filename) {
-  let fileContents = fs.readFileSync(path.join(__dirname, filename));
+  const fileContents = fs.readFileSync(path.join(__dirname, filename));
   const { database, files } = JSON.parse(fileContents);
   return {
     database,
@@ -182,24 +184,23 @@ const parseConfiguration = function(filename) {
 
 const init = async function() {
   try {
-    let source = parseConfiguration(SOURCE_CONFIG_FILE);
+    const source = parseConfiguration(SOURCE_CONFIG_FILE);
     const sourceConnection = await initConnection(source.database);
     source.client = sourceConnection;
 
-    let destination = parseConfiguration(DESTINATION_CONFIG_FILE);
+    const destination = parseConfiguration(DESTINATION_CONFIG_FILE);
     const destinationConnection = await initConnection(destination.database);
     destination.client = destinationConnection;
 
-    await makeSureTablesExistOnTarget(
-      destinationConnection,
-      createSchemaQueries
-    );
+    await makeSureTablesExistOnTarget(destinationConnection, createSchemaQueries);
     await runDatabaseCopy(source, destination);
 
     // Rsync the files
-    let contentTypes = ["c", "f", "u", "g"];
-    await rsync.transferFiles(source, destination, contentTypes);
-    await rsync.transferAssets(source, destination);
+    const contentTypes = ['c', 'f', 'u', 'g'];
+    if (DO_RSYNC) {
+      await rsync.transferFiles(source, destination, contentTypes);
+      await rsync.transferAssets(source, destination);
+    }
 
     logger.info(`${chalk.green(`✓`)}  Exiting.`);
   } catch (error) {
