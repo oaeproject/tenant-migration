@@ -4,7 +4,7 @@
   "description": "This is a repo containing a program used to migrate a tenant's data from one OAE instance to another",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "xo --prettier --quiet '**/*.js'"
   },
   "repository": {
     "type": "git",
@@ -25,10 +25,28 @@
   },
   "homepage": "http://www.oaeproject.org",
   "dependencies": {
+    "cassandra-driver": "latest",
     "chalk": "latest",
     "rsync": "latest",
     "underscore": "latest",
     "winston": "latest",
-    "cassandra-driver": "latest"
+    "xo": "latest",
+    "prettier": "latest"
+  },
+  "devDependencies": {
+    "eslint-config-prettier": "^3.3.0",
+    "eslint-plugin-prettier": "^2.5.0",
+    "mkdirp2": "^1.0.4",
+    "redis": "^2.8.0",
+    "ssh-pool": "^4.1.2"
+  },
+  "xo": {
+    "prettier": true,
+    "extends": [
+      "prettier"
+    ],
+    "plugins": [
+      "prettier"
+    ]
   }
 }
