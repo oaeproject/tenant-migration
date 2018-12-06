@@ -134,6 +134,9 @@ module.exports = [
     query: `CREATE TABLE IF NOT EXISTS "Etherpad" (key text PRIMARY KEY, data text)`
   },
   {
+    query: `CREATE TABLE IF NOT EXISTS "LibraryIndex" ("bucketKey" text, "rankedResourceId" text, value text, PRIMARY KEY("bucketKey", "rankedResourceId"))`
+  },
+  {
     query: `CREATE TABLE IF NOT EXISTS "OAuthClientsByUser" ("userId" text, "clientId" text, "value" text, PRIMARY KEY ("userId", "clientId"))`
   }
 ];

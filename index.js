@@ -25,15 +25,13 @@ const { initConnection } = require('./db');
 const rsync = require('./rsync');
 const createSchemaQueries = require('./schema');
 
-const DO_RSYNC = true;
-const DO_CQL_COPY = true;
+const DO_RSYNC = false;
+const DO_CQL_COPY = false;
+const DO_MAINTENANCE = true;
 
 const { copyPrincipals, copyPrincipalsByEmail } = require('./principals/dao');
-
 const { copyFolders, copyFoldersGroupIds } = require('./folders/dao');
-
 const { copyTenant, copyTenantConfig } = require('./tenants/dao');
-
 const {
   copyDiscussions,
   copyMessageBoxMessages,
@@ -41,35 +39,29 @@ const {
   copyMessageBoxRecentContributions,
   copyMessages
 } = require('./messages/dao');
-
 const {
   copyContent,
   copyRevisionByContent,
   copyRevisions,
   copyEtherpadContent
 } = require('./content/dao');
-
 const { copyAuthzMembers, copyAuthzRoles } = require('./roles/dao');
-
 const { copyUsersGroupVisits } = require('./groups/dao');
-
 const { copyFollowingUsersFollowers, copyFollowingUsersFollowing } = require('./following/dao');
-
 const {
   copyAuthenticationLoginId,
   copyAuthenticationUserLoginId,
   copyOAuthClients,
   copyOAuthClientsByUser
 } = require('./authentication/dao');
-
 const {
   copyAuthzInvitations,
   copyAuthzInvitationsEmailByToken,
   copyAuthzInvitationsResourceIdByEmail,
   copyAuthzInvitationsTokenByEmail
 } = require('./invitations/dao');
-
 const { copyLibraryIndex } = require('./library/dao');
+const { doGroupMaintenance } = require('./maintenance/api');
 
 const SOURCE_CONFIG_FILE = 'source.json';
 const DESTINATION_CONFIG_FILE = 'destination.json';
@@ -157,17 +149,15 @@ const runDatabaseCopy = async function(...args) {
     await copyAuthzInvitationsEmailByToken(...args);
   }
 
-  if (DO_CQL_COPY) {
-    await copyTenantDataAndConfig(...args);
-    await copyTenantFolders(...args);
-    await copyTenantPrincipals(...args);
-    await copyTenantResources(...args);
-    await copyTenantContent(...args);
-    await copyTenantDiscussions(...args);
-    await copyTenantGroupsAndFollowers(...args);
-    await copyTenantAuthenticationSettings(...args);
-    await copyTenantInvitations(...args);
-  }
+  await copyTenantDataAndConfig(...args);
+  await copyTenantFolders(...args);
+  await copyTenantPrincipals(...args);
+  await copyTenantResources(...args);
+  await copyTenantContent(...args);
+  await copyTenantDiscussions(...args);
+  await copyTenantGroupsAndFollowers(...args);
+  await copyTenantAuthenticationSettings(...args);
+  await copyTenantInvitations(...args);
 
   // TODO still experimental, merge with the previous if statement later
   await copyLibraryIndex(...args);
@@ -192,8 +182,14 @@ const init = async function() {
     const destinationConnection = await initConnection(destination.database);
     destination.client = destinationConnection;
 
-    await makeSureTablesExistOnTarget(destinationConnection, createSchemaQueries);
-    await runDatabaseCopy(source, destination);
+    if (DO_CQL_COPY) {
+      await makeSureTablesExistOnTarget(destinationConnection, createSchemaQueries);
+      await runDatabaseCopy(source, destination);
+    }
+
+    if (DO_MAINTENANCE) {
+      await doGroupMaintenance(source, destination);
+    }
 
     // Rsync the files
     const contentTypes = ['c', 'f', 'u', 'g'];
