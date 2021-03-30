@@ -28,7 +28,7 @@
     "cassandra-driver": "latest",
     "chalk": "latest",
     "rsync": "latest",
-    "underscore": "latest",
+    "underscore": "1.12.1",
     "winston": "latest",
     "xo": "latest",
     "prettier": "latest"
