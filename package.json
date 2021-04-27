@@ -37,7 +37,7 @@
     "eslint-config-prettier": "^3.3.0",
     "eslint-plugin-prettier": "^2.5.0",
     "mkdirp2": "^1.0.4",
-    "redis": "^2.8.0",
+    "redis": "^3.1.1",
     "ssh-pool": "^4.1.2"
   },
   "xo": {
