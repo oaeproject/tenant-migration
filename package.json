@@ -29,7 +29,7 @@
     "chalk": "latest",
     "rsync": "latest",
     "underscore": "latest",
-    "winston": "latest",
+    "winston": "3.3.0",
     "xo": "latest",
     "prettier": "latest"
   },
