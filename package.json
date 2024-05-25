@@ -30,7 +30,7 @@
     "rsync": "latest",
     "underscore": "latest",
     "winston": "latest",
-    "xo": "latest",
+    "xo": "0.42.0",
     "prettier": "latest"
   },
   "devDependencies": {
