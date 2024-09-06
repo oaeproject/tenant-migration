@@ -29,8 +29,8 @@
     "chalk": "latest",
     "rsync": "latest",
     "underscore": "latest",
-    "winston": "latest",
-    "xo": "latest",
+    "winston": "3.3.4",
+    "xo": "0.57.0",
     "prettier": "latest"
   },
   "devDependencies": {
